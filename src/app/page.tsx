@@ -1,6 +1,7 @@
-import { Hero } from "@/_components/site/Hero";
+import { redirect } from "next/navigation";
 
-// Página inicial simples. A landing completa (com o Orbi) vem dos mockups.
+// Sem landing no app: a raiz abre direto o login.
+// (As landings continuam só no mockup do canvas.)
 export default function Home() {
-  return <Hero />;
+  redirect("/entrar");
 }

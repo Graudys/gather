@@ -6,7 +6,7 @@ export function KpiGrid({ kpis }: { kpis: AdminKpis }) {
   const items = [
     [t.admin.visao.pessoas, kpis.pessoas],
     [t.admin.visao.workspaces, kpis.workspaces],
-    [t.admin.visao.chamados, kpis.chamados],
+    [t.admin.visao.pendentes, kpis.pendentes],
     [t.admin.visao.erros, kpis.erros],
   ] as const;
   return (

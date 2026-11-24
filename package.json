@@ -4,22 +4,24 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "db:sql": "python3 scripts/prisma2sql.py prisma/schema.prisma supabase/migrations/20261124000100_tabelas.sql",
-    "db:validate": "node -e \"const w=require('@prisma/prisma-schema-wasm');w.validate(JSON.stringify({prismaSchema:[['schema.prisma',require('fs').readFileSync('prisma/schema.prisma','utf8')]]}));console.log('schema.prisma ok')\"",
-    "db:test": "bash scripts/db-test.sh",
-    "db:types": "supabase gen types typescript --linked > src/lib/supabase/database.types.ts"
+    "postinstall": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "db:seed": "tsx prisma/seed.ts",
+    "test": "vitest run"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.12.7",
-    "@supabase/supabase-js": "^2.119.2",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "better-auth": "^1.7.28",
     "geist": "^1.9.2",
-    "livekit-client": "^2.25.0",
-    "livekit-server-sdk": "^2.20.1",
     "next": "16.4.6",
+    "pg": "^8.23.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "^0.0.1",
@@ -27,12 +29,16 @@
   },
   "devDependencies": {
     "@prisma/prisma-schema-wasm": "^8.1.0-2.59be4fda12412a79eeb9c2ae727b6aa723593323",
-    "@types/node": "^20",
+    "@types/node": "^22.20.5",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^18.0.10",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
-    "supabase": "^3.3.0",
-    "typescript": "^5"
+    "prisma": "^7.10.1",
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^5.1.1"
   }
 }

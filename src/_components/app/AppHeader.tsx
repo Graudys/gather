@@ -10,8 +10,8 @@ export function AppHeader({ name, isAdmin }: { name: string; isAdmin: boolean })
     <header className={s.header}>
       <Link href="/app"><Logo /></Link>
       <span className={s.spacer} />
-      {isAdmin && <Link href="/admin" className={s.adminBadge}>{t.admin.selo}</Link>}
-      <span className={s.user}>{name}</span>
+      {isAdmin && <Link href="/admin" className={s.adminBadge} title={t.app.menu.admin}>{t.admin.selo}</Link>}
+      <Link href="/app/perfil" className={s.user} title={t.app.menu.perfil}>{name}</Link>
       <form action={signOut}><Button variant="link">{t.comum.sair}</Button></form>
     </header>
   );

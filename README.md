@@ -1,87 +1,67 @@
-# Gather
+# Gather — versão pessoal
 
-Workspace para equipes pequenas: chat, tarefas, agenda e reuniões por áudio.
-Next.js 16 (App Router) na Vercel, Supabase (Auth, Postgres com RLS, Storage, Realtime, pg_cron) e LiveKit Cloud.
+Chat, reuniões, projetos e tarefas para mim e meu time. Fechado: só entra quem
+o admin cria em **Admin › Pessoas**, com uma senha temporária que a pessoa troca
+no primeiro acesso (junto com 18+ e os termos). Sem cadastro, sem Google, sem e-mail.
 
-O passo a passo para criar e ligar os serviços (Supabase, Google, Resend, LiveKit, Vercel, Turnstile) está no
-guia de configuração do projeto. Este arquivo fala do código.
+- **Next.js 16** (App Router, Server Actions, `proxy.ts`), CSS Modules
+- **Prisma ORM 7** (`prisma-client` + `@prisma/adapter-pg`) no Postgres do Supabase
+- **Better Auth** (e-mail e senha + plugin admin), sessão em cookie HttpOnly
+- PWA: instala no PC (Chrome/Edge) e no celular
 
-## Rodar no computador
+A raiz `/` abre direto o login. As landings (normal e Orbi) ficam só no mockup.
+
+## Rodar pela primeira vez
 
 ```bash
-npm install
-cp .env.example .env.local        # preencha com as chaves do projeto Supabase de TESTE
-npx supabase start                 # opcional: Supabase local (precisa de Docker)
-npm run dev                        # http://localhost:3000
+npm i                      # também roda prisma generate
+cp .env.example .env.local # preencha DATABASE_URL, DIRECT_URL, BETTER_AUTH_SECRET, ADMIN_EMAIL
+npx prisma migrate dev --name init   # cria as tabelas no Supabase
+npm run db:seed            # cria o seu admin e mostra a senha temporária no terminal
+npm run dev                # http://localhost:3000 → entre com a senha temporária
 ```
 
-## Comandos
+Depois de entrar, vá em **Admin › Pessoas › Criar acesso** para cada pessoa do
+time. A senha aparece uma vez só, com uma mensagem pronta para mandar.
 
-| Comando | O que faz |
-| --- | --- |
-| `npm run dev` | App em modo desenvolvimento |
-| `npm run build` | Build de produção (o mesmo que a Vercel roda) |
-| `npm run lint` / `npm run typecheck` | ESLint e TypeScript |
-| `npm run db:validate` | Confere o `prisma/schema.prisma` |
-| `npm run db:sql` | Gera de novo a migração de tabelas a partir do schema |
-| `npm run db:test` | Aplica todas as migrações num Postgres limpo e roda o teste de isolamento |
-| `npx supabase db push` | Envia as migrações para o projeto ligado (`supabase link`) |
-| `npm run db:types` | Gera os tipos TypeScript do banco |
-
-## Onde está cada coisa
+## Pastas
 
 ```
 src/
-  app/              só rotas: page, layout, route. Nada de lógica nem de estilo aqui.
-  _components/      componentes por área: ui/ (Botão, Campo, Aviso, Logo), auth/, app/, admin/, site/
-  _styles/          CSS Modules por área (ui/, auth/, app/, admin/, site/) + globals.css com os tokens
-  _data/            leitura e escrita de dados. As páginas só falam com estas funções.
-                    *.ts = consultas · *.actions.ts = Server Actions
-  _lib/             código do app que roda no servidor: auth (dal.ts), supabase (clientes), server (logs, limites, e-mail, LiveKit)
-  _i18n/            textos da interface (pt-BR)
-  _assets/          logo e imagens
-  lib/              utilitários puros, usados no navegador e no servidor (env público, validação Zod, datas)
-  types/            tipos do domínio e, depois do `db:types`, os tipos do banco
-  proxy.ts          renova a sessão, CSP com nonce, redireciona quem não entrou
-  instrumentation.ts  erros do servidor vão para error_events
-prisma/schema.prisma  desenho do banco (48 tabelas). O app NÃO usa Prisma Client.
-supabase/
-  migrations/       0100 tabelas (gerado do schema) · 0200 RLS e permissões · 0300 funções
-                    0400 Storage, tempo real e rotinas · 0500 consultas das rotinas do app
-  tests/            teste de isolamento entre workspaces (41 verificações)
-  templates/        e-mails de confirmação, nova senha e troca de e-mail (com token_hash)
-.github/workflows/  CI (lint, tipos, build, teste do banco) e backup semanal criptografado
+  app/            rotas (entrar, primeiro-acesso, app, admin, api)
+  _components/    ui, auth, app, admin, site
+  _styles/        CSS Modules agrupados por área (ui, auth, app, admin, site)
+  _data/          leitura (*.ts) e Server Actions (*.actions.ts); TODA função confere acesso
+  _lib/           auth (Better Auth + dal.ts), db (Prisma), server (limites, segurança, registros)
+  _i18n/          textos em pt-BR
+  lib/ types/     validação, formatos e tipos compartilhados
+  generated/      Prisma Client (gerado, fora do git)
+prisma/           schema.prisma, migrations, seed.ts
+tests/            Vitest contra um banco de teste
 ```
 
-Regra das pastas: `app` importa de `_components` e `_data`; `_components` importa de `_styles`, `_i18n` e `lib`;
-só `_data` e `_lib` falam com o Supabase. Pastas com `_` não viram rota no Next.
+## Segurança, em resumo
 
-## Teste fechado
+- **Sem RLS**: a barreira é o código. `src/_lib/auth/dal.ts` (`requireUser`,
+  `requireReadyUser`, `requireMember`, `requireAdmin`) é chamado em toda página,
+  leitura e Server Action. `tests/access.test.ts` prova o isolamento.
+- **Sem rota HTTP do Better Auth**: não existe `/api/auth`; tudo roda por Server
+  Actions. Cadastro desligado (`disableSignUp`).
+- Senhas com scrypt; senha temporária de 16 caracteres, vence em 7 dias, nunca
+  vai para URL, log ou banco em texto. Senha nova é checada no Have I Been Pwned.
+- Limite de tentativas no banco (`rate_limits`): login, troca de senha, ações do admin.
+- Desativar acesso derruba todas as sessões na hora (sem cache de sessão em cookie).
+- CSP com nonce por requisição, HSTS, `frame-ancestors 'none'`.
+- Registros de acesso (6 meses) e erros agrupados (30 dias) em Admin › Erros e acessos.
+- LGPD desligada (`LGPD_ENABLED=false`); termos e 18+ continuam no primeiro acesso.
 
-O cadastro aberto depende de `platform_config.signup_open`. Para testar só com o seu time:
+## Scripts
 
-```sql
-update platform_config set signup_open = false where id = 1;
-```
-
-e desligue "Allow new users to sign up" no Supabase. Convide as pessoas em Authentication › Users › Invite user.
-
-## Regras de segurança que o código segue
-
-1. **O banco é a última barreira.** Toda tabela tem RLS; o navegador usa só a chave publicável.
-   `npm run db:test` falha se alguma tabela ficar sem RLS ou se uma pessoa enxergar outro workspace.
-2. **Chave secreta só no servidor** (`src/lib/supabase/admin.ts`, com `server-only`). Ela ignora o RLS,
-   então só é usada depois de `requireMember` / `requirePlatformAdmin`.
-3. **Admin da plataforma exige MFA**: a tabela `platform_admins` e a função `private.is_platform_admin()`
-   só valem com `aal2`. Não existe tela para virar admin: é um `insert` manual no banco.
-4. **Toda entrada passa por Zod** (Server Actions e rotas). Texto do usuário é renderizado pelo React, nunca como HTML.
-5. **Arquivos**: buckets privados; upload e download só com URL assinada criada no servidor.
-6. **Reuniões**: token do LiveKit de uma sala só, só microfone, curto; webhook com assinatura conferida.
-7. **Logs**: acesso (6 meses) e erros (30 dias, agrupados, sem dados pessoais) no próprio Supabase.
-8. **Rotinas** (`/api/cron/*`) só respondem com `Authorization: Bearer CRON_SECRET`.
-
-## O que ainda falta construir
-
-Esta é a base: autenticação, permissões, banco, logs e reuniões no servidor. As telas de tarefas, agenda,
-sala de reunião (com `livekit-client`), suporte, central de ajuda/Orbi, convites e o restante do admin
-seguem os mockups e usam as mesmas peças (`requireMember`, cliente com sessão, RLS).
+| | |
+|---|---|
+| `npm run dev` | servidor local |
+| `npm test` | testes (precisa de `TEST_DATABASE_URL` num banco de teste, nunca o de produção) |
+| `npm run typecheck` / `npm run lint` | conferências |
+| `npm run db:migrate` | nova migration depois de mudar o schema |
+| `npm run db:deploy` | aplica migrations (produção) |
+| `npm run db:studio` | ver o banco |

@@ -1,29 +1,32 @@
 import "server-only";
-import { createAdminClient } from "@/_lib/supabase/admin";
+import { db } from "@/_lib/db/prisma";
 
 /** Limites padrão. Ajuste aqui, num lugar só. */
 export const LIMITS = {
   login: { max: 8, windowSec: 15 * 60 },
-  signup: { max: 5, windowSec: 60 * 60 },
-  passwordReset: { max: 3, windowSec: 60 * 60 },
+  passwordChange: { max: 6, windowSec: 15 * 60 },
+  adminPeople: { max: 30, windowSec: 60 * 60 },
   clientError: { max: 30, windowSec: 60 },
   meetingToken: { max: 20, windowSec: 60 },
-  invite: { max: 30, windowSec: 24 * 60 * 60 },
-  ticket: { max: 10, windowSec: 24 * 60 * 60 },
 } as const;
 
 /**
  * Conta uma tentativa e diz se ainda está dentro do limite.
- * Guarda no Postgres (tabela private.rate_limits); sem serviço extra.
- * Se o banco falhar, bloqueia (fail closed) nas rotas sensíveis.
+ * Uma linha por chave em rate_limits, atualizada num único comando (sem corrida).
+ * Se o banco falhar, bloqueia (fail closed).
  */
 export async function hit(kind: keyof typeof LIMITS, key: string): Promise<boolean> {
   const { max, windowSec } = LIMITS[kind];
-  const { data, error } = await createAdminClient().rpc("rate_limit_hit", {
-    k: `${kind}:${key}`,
-    max_hits: max,
-    window_seconds: windowSec,
-  });
-  if (error) return false;
-  return data === true;
+  try {
+    const rows = await db.$queryRaw<{ count: number }[]>`
+      insert into rate_limits (key, count, window_start)
+      values (${`${kind}:${key}`}, 1, now())
+      on conflict (key) do update set
+        count = case when rate_limits.window_start < now() - make_interval(secs => ${windowSec}) then 1 else rate_limits.count + 1 end,
+        window_start = case when rate_limits.window_start < now() - make_interval(secs => ${windowSec}) then now() else rate_limits.window_start end
+      returning count`;
+    return (rows[0]?.count ?? max + 1) <= max;
+  } catch {
+    return false;
+  }
 }

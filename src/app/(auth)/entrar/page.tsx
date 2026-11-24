@@ -1,34 +1,38 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { AuthCard, AuthForm, AuthLinks, Divider } from "@/_components/auth/AuthCard";
-import { GoogleButton } from "@/_components/auth/GoogleButton";
-import { Captcha } from "@/_components/auth/Captcha";
+import { redirect } from "next/navigation";
+import { AuthCard, AuthForm, AuthLinks, AuthNote } from "@/_components/auth/AuthCard";
 import { Field } from "@/_components/ui/Field";
 import { Button } from "@/_components/ui/Button";
 import { Alert } from "@/_components/ui/Alert";
 import { signIn } from "@/_data/auth.actions";
+import { getSessionUser } from "@/_lib/auth/dal";
 import { t } from "@/_i18n";
 
-export const metadata: Metadata = { title: t.auth.entrar.titulo };
+export const metadata: Metadata = { title: "Entrar" };
+
+const ERROS = t.auth.erros;
 
 export default async function Entrar({ searchParams }: PageProps<"/entrar">) {
+  // Já entrou? Vai direto para o app (ou para o primeiro acesso).
+  const user = await getSessionUser();
+  if (user) redirect(user.ready ? "/app" : "/primeiro-acesso");
+
   const { erro, next } = (await searchParams) as { erro?: string; next?: string };
+  const msg = erro ? (ERROS[erro as keyof typeof ERROS] ?? ERROS.geral) : null;
   return (
     <AuthCard title={t.auth.entrar.titulo} subtitle={t.auth.entrar.sub}>
-      {erro && <Alert>{erro}</Alert>}
-      <GoogleButton next={next} />
-      <Divider>{t.comum.ou}</Divider>
+      {msg && <Alert>{msg}</Alert>}
       <AuthForm action={signIn}>
         <input type="hidden" name="next" value={next ?? ""} />
         <Field label={t.auth.email} name="email" type="email" autoComplete="email" required maxLength={254} />
         <Field label={t.auth.senha} name="password" type="password" autoComplete="current-password" required maxLength={72} />
-        <Captcha />
-        <Button>{t.auth.entrar.botao}</Button>
+        <Button block>{t.auth.entrar.botao}</Button>
       </AuthForm>
       <AuthLinks>
         <Link href="/esqueci-senha">{t.auth.entrar.esqueci}</Link>
-        <Link href="/cadastro">{t.auth.entrar.criar}</Link>
       </AuthLinks>
+      <AuthNote>{t.auth.entrar.nota}</AuthNote>
     </AuthCard>
   );
 }

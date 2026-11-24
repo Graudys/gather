@@ -5,9 +5,10 @@ import s from "@/_styles/admin/AdminShell.module.css";
 
 export function AdminNav() {
   return (
-    <nav className={s.nav} aria-label="Admin da plataforma">
+    <nav className={s.nav} aria-label="Admin do Gather">
       <div className={s.brand}><Logo /><span className={s.badge}>{t.admin.selo}</span></div>
       <Link className={s.link} href="/admin">{t.admin.menu.visao}</Link>
+      <Link className={s.link} href="/admin/pessoas">{t.admin.menu.pessoas}</Link>
       <Link className={s.link} href="/admin/erros">{t.admin.menu.erros}</Link>
       <Link className={`${s.link} ${s.back}`} href="/app">{t.comum.voltarAoApp}</Link>
     </nav>

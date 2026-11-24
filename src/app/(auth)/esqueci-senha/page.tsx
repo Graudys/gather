@@ -1,27 +1,18 @@
+import Link from "next/link";
 import type { Metadata } from "next";
-import { AuthCard, AuthForm } from "@/_components/auth/AuthCard";
-import { Captcha } from "@/_components/auth/Captcha";
-import { Field } from "@/_components/ui/Field";
-import { Button } from "@/_components/ui/Button";
-import { Alert } from "@/_components/ui/Alert";
-import { requestPasswordReset } from "@/_data/auth.actions";
+import { AuthCard, AuthLinks, AuthNote } from "@/_components/auth/AuthCard";
 import { t } from "@/_i18n";
 
-export const metadata: Metadata = { title: t.auth.esqueci.titulo };
+export const metadata: Metadata = { title: "Esqueci a senha" };
 
-export default async function EsqueciSenha({ searchParams }: PageProps<"/esqueci-senha">) {
-  const { enviado } = (await searchParams) as { enviado?: string };
+// Sem e-mail na versão pessoal: só explica como pedir uma senha nova ao admin.
+export default function EsqueciSenha() {
   return (
     <AuthCard title={t.auth.esqueci.titulo} subtitle={t.auth.esqueci.sub}>
-      {enviado ? (
-        <Alert tone="ok">{t.auth.esqueci.enviado}</Alert>
-      ) : (
-        <AuthForm action={requestPasswordReset}>
-          <Field label={t.auth.email} name="email" type="email" autoComplete="email" required maxLength={254} />
-          <Captcha />
-          <Button>{t.auth.esqueci.botao}</Button>
-        </AuthForm>
-      )}
+      <AuthNote>{t.auth.esqueci.nota}</AuthNote>
+      <AuthLinks>
+        <Link href="/entrar">{t.auth.esqueci.voltar}</Link>
+      </AuthLinks>
     </AuthCard>
   );
 }

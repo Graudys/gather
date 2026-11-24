@@ -5,8 +5,9 @@ import "@/_styles/globals.css";
 
 export const metadata: Metadata = {
   title: { default: "Gather", template: "%s · Gather" },
-  description: "Chat, tarefas, agenda e reuniões por áudio para equipes pequenas.",
-  robots: { index: true, follow: true },
+  description: "Chat, reuniões, projetos e tarefas no mesmo lugar. Versão pessoal, só para convidados.",
+  robots: { index: false, follow: false },
+  applicationName: "Gather",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

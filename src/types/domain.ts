@@ -1,5 +1,5 @@
 // Tipos do domínio usados entre _data, _components e app.
-// Os tipos completos do banco saem de `npm run db:types` em database.types.ts.
+// Os tipos completos do banco vêm do Prisma (src/generated/prisma).
 
 export type WorkspaceRole = "OWNER" | "ADMIN" | "MEMBER";
 export type WorkspaceKind = "PERSONAL" | "TEAM";
@@ -40,4 +40,6 @@ export type ErrorRow = {
   release: string | null;
 };
 
-export type AdminKpis = { pessoas: number; workspaces: number; chamados: number; erros: number };
+export type AdminKpis = { pessoas: number; workspaces: number; pendentes: number; erros: number };
+
+export type AccessRow = { id: string; at: string; person: string; event: string; ip: string; device: string };

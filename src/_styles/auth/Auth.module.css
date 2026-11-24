@@ -18,3 +18,20 @@
 .divider { display: flex; align-items: center; gap: 12px; color: var(--text-faint); font-size: 12px; }
 .divider::before, .divider::after { content: ""; flex: 1; border-top: 1px solid var(--line-2); }
 .inlineLink { text-decoration: underline; }
+
+/* Duas colunas (como no mockup): lado da marca + cartão. Some no celular. */
+.split { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 100%; }
+.side {
+  display: flex; flex-direction: column; justify-content: space-between; padding: 40px;
+  background: radial-gradient(120% 80% at 0% 0%, rgba(124, 92, 240, .22), transparent 60%), var(--bg-sidebar);
+  border-right: 1px solid var(--line);
+}
+.slogan { font-size: 34px; font-weight: 600; letter-spacing: -.04em; line-height: 1.1; }
+.sideText { margin-top: 10px; color: var(--text-muted); font-size: 15px; max-width: 32ch; }
+.sideFoot { color: var(--text-faint); font-size: 12px; }
+.email { color: var(--text); font-weight: 500; }
+.rules { color: var(--text-faint); font-size: 12px; margin-top: -8px; }
+@media (max-width: 860px) {
+  .split { grid-template-columns: 1fr; }
+  .side { display: none; }
+}

@@ -2,19 +2,19 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createClient } from "@/_lib/supabase/server";
+import { db } from "@/_lib/db/prisma";
 import { requireMember, requireReadyUser } from "@/_lib/auth/dal";
+import { createTeamWorkspaceFor } from "@/_data/workspaces.server";
+import { visibleChannelsWhere } from "@/_data/workspaces";
 import { id as Id, nomeWorkspace, textoMensagem } from "@/lib/validation";
 
 export async function createWorkspace(form: FormData) {
-  await requireReadyUser();
+  const user = await requireReadyUser();
   const name = nomeWorkspace.safeParse(form.get("name"));
-  if (!name.success) redirect("/app?erro=" + encodeURIComponent("Dê um nome de até 80 caracteres."));
-  const supabase = await createClient();
-  // A função no banco confere o limite de 1 workspace de equipe no plano grátis.
-  const { data, error } = await supabase.rpc("create_team_workspace", { ws_name: name.data });
-  if (error) redirect("/app?erro=" + encodeURIComponent(error.message.includes("Limite") ? "No plano grátis cada pessoa tem 1 workspace de equipe." : "Não foi possível criar agora."));
-  redirect(`/app/w/${data}`);
+  if (!name.success) redirect("/app?erro=nome");
+  const res = await createTeamWorkspaceFor(user.id, name.data!);
+  if (!res.ok) redirect("/app?erro=limite");
+  redirect(`/app/w/${res.id}`);
 }
 
 const Msg = z.object({ workspaceId: Id, channelId: Id, content: textoMensagem });
@@ -24,17 +24,9 @@ export async function sendMessage(form: FormData) {
   if (!parsed.success) return;
   const { workspaceId, channelId, content } = parsed.data;
   const { user } = await requireMember(workspaceId);
-  const supabase = await createClient();
-  // O RLS confere de novo: canal do mesmo workspace, visível para a pessoa, remetente = ela.
-  await supabase.from("messages").insert({ workspace_id: workspaceId, channel_id: channelId, sender_id: user.id, content });
+  // O canal precisa ser deste workspace E visível para a pessoa (privado só para membros).
+  const channel = await db.channel.findFirst({ where: { id: channelId, ...visibleChannelsWhere(workspaceId, user.id) }, select: { id: true } });
+  if (!channel) return;
+  await db.message.create({ data: { workspaceId, channelId, senderId: user.id, content } });
   revalidatePath(`/app/w/${workspaceId}`);
-}
-
-export async function requestMeetings(form: FormData) {
-  const ws = Id.safeParse(form.get("workspaceId"));
-  if (!ws.success) return;
-  const { user } = await requireMember(ws.data);
-  const supabase = await createClient();
-  await supabase.from("meeting_requests").upsert({ workspace_id: ws.data, user_id: user.id }, { ignoreDuplicates: true });
-  revalidatePath(`/app/w/${ws.data}`);
 }

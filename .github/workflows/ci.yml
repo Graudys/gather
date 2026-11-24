@@ -9,11 +9,19 @@ permissions:
 jobs:
   app:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      # valores falsos, só para compilar
-      NEXT_PUBLIC_SUPABASE_URL: https://exemplo.supabase.co
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_ci_ci_ci_ci
-      SUPABASE_SECRET_KEY: sb_secret_ci_ci_ci_ci_ci_ci_ci
+      # Valores falsos, só para compilar e testar. Nada aqui é segredo de verdade.
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      BETTER_AUTH_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
+      BETTER_AUTH_URL: http://localhost:3000
       NEXT_PUBLIC_APP_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
@@ -21,28 +29,10 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm audit --omit=dev --audit-level=high
+      - run: npx prisma validate
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm run db:validate
+      # Banco limpo com o schema atual + testes de acesso (isolamento, admin, limites).
+      - run: npx prisma db push --accept-data-loss
+      - run: npm test
       - run: npm run build
-
-  banco:
-    # Aplica todas as migrações num Postgres limpo e roda o teste de isolamento.
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env: { POSTGRES_PASSWORD: postgres }
-        ports: ["5432:5432"]
-        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm }
-      - run: npm ci
-      - name: Migração de tabelas confere com o schema.prisma
-        run: |
-          python3 scripts/prisma2sql.py prisma/schema.prisma /tmp/tabelas.sql
-          diff -u supabase/migrations/20261124000100_tabelas.sql /tmp/tabelas.sql
-      - run: npm run db:test
-        env: { DATABASE_URL: "postgres://postgres:postgres@localhost:5432/postgres" }

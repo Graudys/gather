@@ -1,22 +1,40 @@
 import "server-only";
 import { cache } from "react";
+import { headers } from "next/headers";
 import { redirect, notFound } from "next/navigation";
-import { createClient } from "@/_lib/supabase/server";
+import { auth } from "@/_lib/auth/auth";
+import { db } from "@/_lib/db/prisma";
+import type { WorkspaceRole } from "@/generated/prisma/enums";
 
 /**
  * Camada de acesso (DAL). Toda página, Server Action e rota passa por aqui
- * antes de ler ou mudar dados. O RLS no banco é a segunda barreira.
+ * antes de ler ou mudar dados. Sem RLS: esta é a barreira, por isso cada
+ * função de src/_data/* chama uma destas antes de tocar no banco.
  */
 
-export type SessionUser = { id: string; email: string | null; aal: string };
+export type SessionUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: "admin" | "user";
+  mustChangePassword: boolean;
+  ready: boolean; // trocou a senha e aceitou 18+ e termos
+};
 
-/** Pessoa da sessão, com o JWT conferido. `null` se não entrou. */
+/** Pessoa da sessão (conferida no banco a cada requisição). `null` se não entrou. */
 export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.getClaims();
-  if (error || !data?.claims?.sub) return null;
-  const c = data.claims;
-  return { id: c.sub, email: (c.email as string | undefined) ?? null, aal: (c.aal as string | undefined) ?? "aal1" };
+  const s = await auth.api.getSession({ headers: await headers() });
+  if (!s?.user || s.user.banned) return null;
+  const u = s.user;
+  const mustChange = u.mustChangePassword !== false;
+  return {
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    role: u.role === "admin" ? "admin" : "user",
+    mustChangePassword: mustChange,
+    ready: !mustChange && Boolean(u.ageConfirmedAt) && Boolean(u.termsAcceptedAt),
+  };
 });
 
 export async function requireUser(next?: string) {
@@ -25,57 +43,30 @@ export async function requireUser(next?: string) {
   return user;
 }
 
-/** Conta ativa e com 18+ e termos aceitos (contas do Google confirmam em /boas-vindas). */
+/** Entrou E já fez o primeiro acesso (senha nova, 18+, termos). */
 export async function requireReadyUser(next?: string) {
   const user = await requireUser(next);
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, display_name, status, onboarding_step")
-    .eq("id", user.id)
-    .single();
-  if (!profile || profile.status !== "ACTIVE") redirect("/conta-bloqueada");
-  if (profile.onboarding_step < 1) redirect("/boas-vindas");
-  return { ...user, displayName: profile.display_name as string };
+  if (!user.ready) redirect("/primeiro-acesso");
+  return user;
 }
-
-export type WorkspaceRole = "OWNER" | "ADMIN" | "MEMBER";
 
 /** Garante que a pessoa é membro do workspace. Devolve o papel dela. */
 export async function requireMember(workspaceId: string, allowed?: WorkspaceRole[]) {
   const user = await requireReadyUser();
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("workspace_members")
-    .select("role, workspaces!inner(id, name, kind, suspended_at)")
-    .eq("workspace_id", workspaceId)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const m = await db.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId, userId: user.id } },
+    select: { role: true, workspace: { select: { id: true, name: true, kind: true, suspendedAt: true } } },
+  });
   // Não dizer se o workspace existe para quem não é membro.
-  if (!data) notFound();
-  const ws = data.workspaces as unknown as { id: string; name: string; kind: string; suspended_at: string | null };
-  if (ws.suspended_at) redirect("/app?aviso=workspace-suspenso");
-  const role = data.role as WorkspaceRole;
-  if (allowed && !allowed.includes(role)) notFound();
-  return { user, role, workspace: ws };
+  if (!m) notFound();
+  if (m.workspace.suspendedAt) redirect("/app?aviso=workspace-suspenso");
+  if (allowed && !allowed.includes(m.role)) notFound();
+  return { user, role: m.role, workspace: m.workspace };
 }
 
-/**
- * Admin da plataforma: precisa estar em platform_admins E ter entrado com
- * segundo fator (aal2). Sem MFA vai para /admin/mfa.
- */
-export async function requirePlatformAdmin() {
-  const user = await requireUser("/admin");
-  const supabase = await createClient();
-  const { data: row } = await supabase.from("platform_admins").select("user_id").eq("user_id", user.id).maybeSingle();
-  if (!row) notFound();
-  if (user.aal !== "aal2") redirect("/admin/mfa");
+/** Admin do Gather (role = "admin"). Quem não é recebe 404, sem dizer que a área existe. */
+export async function requireAdmin() {
+  const user = await requireReadyUser("/admin");
+  if (user.role !== "admin") notFound();
   return user;
-}
-
-/** Só confere se é admin (sem exigir MFA): usado pela própria tela de MFA. */
-export async function isPlatformAdminRow(userId: string) {
-  const supabase = await createClient();
-  const { data } = await supabase.from("platform_admins").select("user_id").eq("user_id", userId).maybeSingle();
-  return Boolean(data);
 }

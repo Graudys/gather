@@ -1,35 +1,44 @@
 import "server-only";
-import { createAdminClient } from "@/_lib/supabase/admin";
-import { createClient } from "@/_lib/supabase/server";
-import { requirePlatformAdmin } from "@/_lib/auth/dal";
-import type { AdminKpis, ErrorRow } from "@/types/domain";
+import { db } from "@/_lib/db/prisma";
+import { requireAdmin } from "@/_lib/auth/dal";
+import type { AccessRow, AdminKpis, ErrorRow } from "@/types/domain";
 
 /** Só números agregados. Nenhuma mensagem ou arquivo sai daqui. */
 export async function getAdminKpis(): Promise<AdminKpis> {
-  await requirePlatformAdmin();
-  const db = createAdminClient();
-  const head = { count: "exact" as const, head: true };
-  const [p, w, t, e] = await Promise.all([
-    db.from("profiles").select("*", head),
-    db.from("workspaces").select("*", head).eq("kind", "TEAM"),
-    db.from("support_tickets").select("*", head).in("status", ["OPEN", "WAITING_USER"]),
-    db.from("error_events").select("*", head).in("status", ["NEW", "REGRESSED"]),
+  await requireAdmin();
+  const [pessoas, workspaces, pendentes, erros] = await Promise.all([
+    db.user.count({ where: { banned: false } }),
+    db.workspace.count({ where: { kind: "TEAM" } }),
+    db.user.count({ where: { banned: false, mustChangePassword: true } }),
+    db.errorEvent.count({ where: { status: { in: ["NEW", "REGRESSED"] } } }),
   ]);
-  return { pessoas: p.count ?? 0, workspaces: w.count ?? 0, chamados: t.count ?? 0, erros: e.count ?? 0 };
+  return { pessoas, workspaces, pendentes, erros };
 }
 
-/** Erros abertos. Usa a sessão: o RLS confere de novo admin + MFA. */
 export async function listOpenErrors(): Promise<ErrorRow[]> {
-  await requirePlatformAdmin();
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("error_events")
-    .select("id, status, source, message, location, count, users_affected, last_seen_at, release")
-    .in("status", ["NEW", "REGRESSED", "OPEN"])
-    .order("last_seen_at", { ascending: false })
-    .limit(100);
-  return (data ?? []).map((e) => ({
-    id: e.id, status: e.status, source: e.source, message: e.message, location: e.location,
-    count: e.count, usersAffected: e.users_affected, lastSeenAt: e.last_seen_at, release: e.release,
+  await requireAdmin();
+  const rows = await db.errorEvent.findMany({
+    where: { status: { in: ["NEW", "REGRESSED", "OPEN"] } },
+    orderBy: { lastSeenAt: "desc" },
+    take: 100,
+    select: { id: true, status: true, source: true, message: true, location: true, count: true, usersAffected: true, lastSeenAt: true, release: true },
+  });
+  return rows.map((e) => ({ ...e, lastSeenAt: e.lastSeenAt.toISOString() }));
+}
+
+/** Últimos acessos (Marco Civil). Mostra nome e e-mail só para o admin. */
+export async function listRecentAccess(): Promise<AccessRow[]> {
+  await requireAdmin();
+  const rows = await db.accessLog.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
+  const ids = [...new Set(rows.map((r) => r.userId).filter(Boolean) as string[])];
+  const users = await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } });
+  const names = new Map(users.map((u) => [u.id, u.name]));
+  return rows.map((r) => ({
+    id: String(r.id),
+    at: r.createdAt.toISOString(),
+    person: r.userId ? (names.get(r.userId) ?? "Conta removida") : "—",
+    event: r.event,
+    ip: r.ip,
+    device: r.userAgent ?? "",
   }));
 }
