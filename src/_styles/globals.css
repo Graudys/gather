@@ -1,0 +1,62 @@
+/* Gather — base e tokens (os mesmos dos mockups do canvas).
+   Cada área tem seus CSS Modules em src/_styles/<área>/. */
+
+:root {
+  --bg: #0c0c10;
+  --bg-sidebar: #101014;
+  --bg-main: #131318;
+  --bg-input: #0f0f13;
+  --surface: #1a1a20;
+  --surface-2: #1f1f26;
+  --surface-3: #23232b;
+  --line: #23232a;
+  --line-2: #2c2c36;
+  --line-3: #34343e;
+  --text: #f2f2f6;
+  --text-strong: #e6e6ee;
+  --text-chip: #b4b4c0;
+  --text-nav: #a3a3ae;
+  --text-label: #9a9aa6;
+  --text-muted: #8e8e99;
+  --text-faint: #7d7d89;
+  --accent-1: #5546e8;
+  --accent-2: #8248f0;
+  --accent: #7c5cf0;
+  --brand-1: #5b8cff;
+  --brand-2: #b08cff;
+  --focus: #8b7bff;
+  --danger: #c13b4a;
+  --danger-text: #ff8a90;
+  --ok: #55da8f;
+  --warn: #f2c14e;
+  --admin: #f2c14e;
+
+  --radius-sm: 7px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --font: var(--font-geist-sans), Geist, Inter, system-ui, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 14px/1.5 var(--font);
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
+}
+
+h1, h2, h3, p { margin: 0; }
+a { color: inherit; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

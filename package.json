@@ -27,14 +27,12 @@
   },
   "devDependencies": {
     "@prisma/prisma-schema-wasm": "^8.1.0-2.59be4fda12412a79eeb9c2ae727b6aa723593323",
-    "@tailwindcss/turbopack": "4.3.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
     "supabase": "^3.3.0",
-    "tailwindcss": "4.3.3",
     "typescript": "^5"
   }
 }

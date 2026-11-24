@@ -1,0 +1,15 @@
+.field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.label { color: var(--text-label); }
+.input {
+  background: var(--bg-input);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+  width: 100%;
+}
+.input:focus { border-color: var(--focus); }
+.input::placeholder { color: var(--text-faint); }
+.check { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--text-strong); }
+.box { margin-top: 2px; width: 16px; height: 16px; accent-color: var(--accent); flex: none; }

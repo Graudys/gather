@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { webhookReceiver } from "@/lib/server/livekit";
-import { reportError } from "@/lib/server/observability";
+import { createAdminClient } from "@/_lib/supabase/admin";
+import { webhookReceiver } from "@/_lib/server/livekit";
+import { reportError } from "@/_lib/server/observability";
 
 // Eventos do LiveKit. A assinatura é conferida ANTES de qualquer coisa.
 export async function POST(req: Request) {

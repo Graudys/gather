@@ -78,6 +78,9 @@ SELECT tests.fails($$SELECT public.accept_invite('tok-outra')$$, 'convite de out
 SELECT tests.ok((SELECT count(*) FROM messages WHERE channel_id = :'ch_a') = 1, 'Carla lê o #geral');
 SELECT tests.ok((SELECT count(*) FROM messages WHERE channel_id = :'ch_priv') = 0, 'Carla não lê o canal privado');
 SELECT tests.ok((SELECT count(*) FROM workspace_invites) = 0, 'membro comum não vê convites');
+INSERT INTO support_tickets (requester_id, workspace_id, category, title) VALUES (auth.uid(), :'ws_a', 'TECHNICAL', 'Não consigo anexar');
+SELECT tests.ok((SELECT count(*) FROM support_tickets) = 1, 'Carla abre chamado e vê só o dela');
+SELECT tests.fails($$INSERT INTO support_tickets (requester_id, category, title, status) VALUES (auth.uid(), 'TECHNICAL', 'x', 'RESOLVED')$$, 'chamado não nasce resolvido');
 UPDATE workspace_settings SET message_retention_months = 12 WHERE workspace_id = :'ws_a';
 SELECT tests.ok((SELECT message_retention_months FROM workspace_settings WHERE workspace_id = :'ws_a') = 3, 'membro comum não muda o prazo');
 DELETE FROM workspace_members WHERE workspace_id = :'ws_a' AND role = 'OWNER';
@@ -117,6 +120,12 @@ RESET ROLE;
 -- ── Rotina de mensagens apaga o que passou do prazo
 UPDATE messages SET created_at = now() - interval '4 months' WHERE content = 'oi equipe';
 SELECT tests.ok(private.purge_expired_messages() = 1, 'rotina apagou a mensagem de 4 meses (prazo 3)');
+
+-- ── Bruno não vê o chamado da Carla
+SELECT tests.login('00000000-0000-0000-0000-00000000000b');
+SET ROLE authenticated;
+SELECT tests.ok((SELECT count(*) FROM support_tickets) = 0, 'Bruno não vê chamados dos outros');
+RESET ROLE;
 
 -- ── Nenhuma tabela pública sem RLS
 SELECT tests.ok(NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace

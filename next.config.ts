@@ -16,14 +16,6 @@ const nextConfig: NextConfig = {
   // O app lê a sessão (cookies) em quase toda página; sem Cache Components
   // cada página autenticada é dinâmica e não precisa de <Suspense> em volta.
   cacheComponents: false,
-  turbopack: {
-    rules: {
-      "*.css": {
-        loaders: ["@tailwindcss/turbopack"],
-        as: "*.css",
-      },
-    },
-  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

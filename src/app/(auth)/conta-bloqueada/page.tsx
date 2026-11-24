@@ -1,10 +1,10 @@
-import Link from "next/link";
-import { AuthCard } from "@/components/ui";
+import { AuthCard, AuthNote } from "@/_components/auth/AuthCard";
+import { t } from "@/_i18n";
 
 export default function ContaBloqueada() {
   return (
-    <AuthCard title="Conta indisponível" subtitle="Esta conta está bloqueada ou com exclusão agendada.">
-      <p className="text-sm text-neutral-400">Se acha que é um engano, fale com o suporte pela <Link className="underline" href="/ajuda">central de ajuda</Link>.</p>
+    <AuthCard title={t.auth.bloqueada.titulo} subtitle={t.auth.bloqueada.sub}>
+      <AuthNote>{t.auth.bloqueada.texto}</AuthNote>
     </AuthCard>
   );
 }

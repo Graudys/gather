@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { safeNext } from "@/lib/server/security";
-import { logAccess } from "@/lib/server/observability";
-import { clientIp, shortUserAgent } from "@/lib/server/request";
+import { createClient } from "@/_lib/supabase/server";
+import { safeNext } from "@/_lib/server/security";
+import { logAccess } from "@/_lib/server/observability";
+import { clientIp, shortUserAgent } from "@/_lib/server/request";
 
 // Volta do Google (OAuth com PKCE): troca o código pela sessão.
 export async function GET(req: NextRequest) {

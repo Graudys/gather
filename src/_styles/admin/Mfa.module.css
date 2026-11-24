@@ -1,0 +1,5 @@
+.form { display: flex; flex-direction: column; gap: 16px; }
+.text { font-size: 13px; color: var(--text-strong); }
+.qr { display: block; margin: 0 auto; width: 192px; height: 192px; background: #fff; border-radius: var(--radius); padding: 8px; }
+.code { letter-spacing: .3em; }
+.error { color: var(--danger-text); font-size: 13px; }

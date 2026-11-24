@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
-import { requireUser, isPlatformAdminRow } from "@/lib/auth/dal";
-import { AuthCard } from "@/components/ui";
-import { MfaForm } from "./MfaForm";
+import { AuthCard } from "@/_components/auth/AuthCard";
+import { MfaForm } from "@/_components/admin/MfaForm";
+import { requireUser, isPlatformAdminRow } from "@/_lib/auth/dal";
+import { t } from "@/_i18n";
 
 export const metadata = { title: "Segundo fator", robots: { index: false } };
 
@@ -10,7 +11,7 @@ export default async function AdminMfa() {
   const user = await requireUser("/admin/mfa");
   if (!(await isPlatformAdminRow(user.id))) notFound();
   return (
-    <AuthCard title="Confirme que é você" subtitle="A área de admin exige o código do app autenticador.">
+    <AuthCard title={t.admin.mfa.titulo} subtitle={t.admin.mfa.sub}>
       <MfaForm />
     </AuthCard>
   );

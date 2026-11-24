@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSessionUser } from "@/lib/auth/dal";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { hit } from "@/lib/server/rate-limit";
-import { sameOrigin } from "@/lib/server/request";
-import { audioToken, livekitUrl } from "@/lib/server/livekit";
+import { getSessionUser } from "@/_lib/auth/dal";
+import { createAdminClient } from "@/_lib/supabase/admin";
+import { hit } from "@/_lib/server/rate-limit";
+import { sameOrigin } from "@/_lib/server/request";
+import { audioToken, livekitUrl } from "@/_lib/server/livekit";
 
 // Entrar numa reunião: confere tudo no banco e devolve um token só de áudio.
 export async function POST(req: Request) {

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { serverEnv } from "@/lib/server/env";
-import { reportError } from "@/lib/server/observability";
-import { roomService } from "@/lib/server/livekit";
+import { createAdminClient } from "@/_lib/supabase/admin";
+import { serverEnv } from "@/_lib/server/env";
+import { reportError } from "@/_lib/server/observability";
+import { roomService } from "@/_lib/server/livekit";
 
 export const maxDuration = 60;
 

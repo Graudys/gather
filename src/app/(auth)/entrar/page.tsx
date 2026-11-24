@@ -1,32 +1,34 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { AuthCard, Field, Button, Alert } from "@/components/ui";
-import { Captcha } from "@/components/Captcha";
-import { signIn, signInWithGoogle } from "../actions";
+import { AuthCard, AuthForm, AuthLinks, Divider } from "@/_components/auth/AuthCard";
+import { GoogleButton } from "@/_components/auth/GoogleButton";
+import { Captcha } from "@/_components/auth/Captcha";
+import { Field } from "@/_components/ui/Field";
+import { Button } from "@/_components/ui/Button";
+import { Alert } from "@/_components/ui/Alert";
+import { signIn } from "@/_data/auth.actions";
+import { t } from "@/_i18n";
 
-export const metadata: Metadata = { title: "Entrar" };
+export const metadata: Metadata = { title: t.auth.entrar.titulo };
 
 export default async function Entrar({ searchParams }: PageProps<"/entrar">) {
   const { erro, next } = (await searchParams) as { erro?: string; next?: string };
   return (
-    <AuthCard title="Entrar" subtitle="Bom te ver de novo.">
+    <AuthCard title={t.auth.entrar.titulo} subtitle={t.auth.entrar.sub}>
       {erro && <Alert>{erro}</Alert>}
-      <form action={signInWithGoogle}>
+      <GoogleButton next={next} />
+      <Divider>{t.comum.ou}</Divider>
+      <AuthForm action={signIn}>
         <input type="hidden" name="next" value={next ?? ""} />
-        <Button variant="ghost" className="w-full">Continuar com Google</Button>
-      </form>
-      <div className="flex items-center gap-3 text-xs text-neutral-500"><hr className="flex-1 border-white/10" />ou<hr className="flex-1 border-white/10" /></div>
-      <form action={signIn} className="flex flex-col gap-4">
-        <input type="hidden" name="next" value={next ?? ""} />
-        <Field label="E-mail" name="email" type="email" autoComplete="email" required maxLength={254} />
-        <Field label="Senha" name="password" type="password" autoComplete="current-password" required maxLength={72} />
+        <Field label={t.auth.email} name="email" type="email" autoComplete="email" required maxLength={254} />
+        <Field label={t.auth.senha} name="password" type="password" autoComplete="current-password" required maxLength={72} />
         <Captcha />
-        <Button>Entrar</Button>
-      </form>
-      <div className="flex justify-between text-sm text-neutral-400">
-        <Link href="/esqueci-senha" className="hover:text-white">Esqueci a senha</Link>
-        <Link href="/cadastro" className="hover:text-white">Criar conta</Link>
-      </div>
+        <Button>{t.auth.entrar.botao}</Button>
+      </AuthForm>
+      <AuthLinks>
+        <Link href="/esqueci-senha">{t.auth.entrar.esqueci}</Link>
+        <Link href="/cadastro">{t.auth.entrar.criar}</Link>
+      </AuthLinks>
     </AuthCard>
   );
 }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { GeistSans } from "geist/font/sans";
-import "./globals.css";
+import "@/_styles/globals.css";
 
 export const metadata: Metadata = {
   title: { default: "Gather", template: "%s · Gather" },
@@ -14,8 +14,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   // colocar o nonce da CSP (criado no proxy) nos próprios scripts.
   await headers();
   return (
-    <html lang="pt-BR" className={`${GeistSans.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col">{children}</body>
+    <html lang="pt-BR" className={GeistSans.variable}>
+      <body>{children}</body>
     </html>
   );
 }

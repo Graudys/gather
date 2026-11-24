@@ -484,6 +484,8 @@ CREATE POLICY notifications_delete ON notifications FOR DELETE TO authenticated 
 GRANT SELECT, INSERT ON support_tickets TO authenticated;
 GRANT UPDATE (status, priority, assignee_id, last_staff_reply_at, auto_close_at, resolved_at, closed_at) ON support_tickets TO authenticated;
 CREATE POLICY tickets_read ON support_tickets FOR SELECT TO authenticated USING (requester_id = auth.uid() OR private.is_platform_admin());
+-- O número do chamado (#1042) vem de um contador: quem abre chamado precisa usá-lo.
+GRANT USAGE ON SEQUENCE support_tickets_number_seq TO authenticated;
 CREATE POLICY tickets_insert ON support_tickets FOR INSERT TO authenticated WITH CHECK (
   requester_id = auth.uid() AND status = 'OPEN' AND assignee_id IS NULL
   AND (workspace_id IS NULL OR private.is_member(workspace_id)));

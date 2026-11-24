@@ -31,26 +31,40 @@ npm run dev                        # http://localhost:3000
 ## Onde está cada coisa
 
 ```
-prisma/schema.prisma            desenho do banco (48 tabelas). O app NÃO usa Prisma Client.
-supabase/migrations/
-  …0100_tabelas.sql             gerado do schema (não editar à mão)
-  …0200_seguranca.sql           RLS em todas as tabelas, permissões por coluna, gatilhos
-  …0300_funcoes.sql             cadastro, criar workspace, convite, rate limit, logs, reuniões
-  …0400_storage_rotinas.sql     buckets, tempo real, limpeza de mensagens/logs/chamados, pg_cron
-  …0500_rotinas_app.sql         consultas das rotinas que mexem no Storage e no LiveKit
-supabase/tests/                 teste de isolamento entre workspaces (34 verificações)
-supabase/templates/             e-mails de confirmação e de nova senha (com token_hash)
-src/proxy.ts                    renova a sessão, CSP com nonce, redireciona quem não entrou
-src/lib/auth/dal.ts             requireUser / requireMember / requirePlatformAdmin (MFA)
-src/lib/supabase/               clientes: server (sessão), browser (sessão), admin (chave secreta)
-src/lib/server/                 env, rate limit, senha vazada, captcha, logs, e-mail, LiveKit
-src/app/(auth)/                 entrar, cadastro (18+), esqueci/redefinir senha, boas-vindas (Google)
-src/app/app/                    workspaces e chat (exemplo de leitura e escrita pelo RLS)
-src/app/admin/                  admin da plataforma: MFA obrigatório, visão geral, erros
-src/app/api/                    /erro (erros do navegador), /livekit/token, /livekit/webhook, /cron/[job]
-src/instrumentation.ts          erros do servidor vão para error_events
-.github/workflows/              CI (lint, tipos, build, teste do banco) e backup semanal criptografado
+src/
+  app/              só rotas: page, layout, route. Nada de lógica nem de estilo aqui.
+  _components/      componentes por área: ui/ (Botão, Campo, Aviso, Logo), auth/, app/, admin/, site/
+  _styles/          CSS Modules por área (ui/, auth/, app/, admin/, site/) + globals.css com os tokens
+  _data/            leitura e escrita de dados. As páginas só falam com estas funções.
+                    *.ts = consultas · *.actions.ts = Server Actions
+  _lib/             código do app que roda no servidor: auth (dal.ts), supabase (clientes), server (logs, limites, e-mail, LiveKit)
+  _i18n/            textos da interface (pt-BR)
+  _assets/          logo e imagens
+  lib/              utilitários puros, usados no navegador e no servidor (env público, validação Zod, datas)
+  types/            tipos do domínio e, depois do `db:types`, os tipos do banco
+  proxy.ts          renova a sessão, CSP com nonce, redireciona quem não entrou
+  instrumentation.ts  erros do servidor vão para error_events
+prisma/schema.prisma  desenho do banco (48 tabelas). O app NÃO usa Prisma Client.
+supabase/
+  migrations/       0100 tabelas (gerado do schema) · 0200 RLS e permissões · 0300 funções
+                    0400 Storage, tempo real e rotinas · 0500 consultas das rotinas do app
+  tests/            teste de isolamento entre workspaces (41 verificações)
+  templates/        e-mails de confirmação, nova senha e troca de e-mail (com token_hash)
+.github/workflows/  CI (lint, tipos, build, teste do banco) e backup semanal criptografado
 ```
+
+Regra das pastas: `app` importa de `_components` e `_data`; `_components` importa de `_styles`, `_i18n` e `lib`;
+só `_data` e `_lib` falam com o Supabase. Pastas com `_` não viram rota no Next.
+
+## Teste fechado
+
+O cadastro aberto depende de `platform_config.signup_open`. Para testar só com o seu time:
+
+```sql
+update platform_config set signup_open = false where id = 1;
+```
+
+e desligue "Allow new users to sign up" no Supabase. Convide as pessoas em Authentication › Users › Invite user.
 
 ## Regras de segurança que o código segue
 

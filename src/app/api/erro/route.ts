@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSessionUser } from "@/lib/auth/dal";
-import { reportError } from "@/lib/server/observability";
-import { hit } from "@/lib/server/rate-limit";
-import { clientIp, sameOrigin, shortUserAgent } from "@/lib/server/request";
+import { getSessionUser } from "@/_lib/auth/dal";
+import { reportError } from "@/_lib/server/observability";
+import { hit } from "@/_lib/server/rate-limit";
+import { clientIp, sameOrigin, shortUserAgent } from "@/_lib/server/request";
 
 // Erros do navegador chegam aqui (error.tsx e global-error.tsx).
 const Body = z.object({
