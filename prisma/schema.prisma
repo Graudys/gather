@@ -1,0 +1,1237 @@
+// Gather — schema.prisma (v2, Supabase / PostgreSQL)
+//
+// O que mudou desde o rascunho inicial:
+// - Sem transcrição.
+// - Retenção por workspace, em janela móvel: mensagens em meses, arquivos do chat em horas.
+//   Sai RetentionPolicy (exceções por equipe/canal) e saem Message.expiresAt e Task.expiresAt.
+//   A limpeza calcula o corte na hora, a partir de WorkspaceSettings: é isso que faz a mudança valer para o histórico.
+// - Opções de prazo que os workspaces podem escolher vêm de PlatformConfig (o admin liga e desliga).
+// - Reuniões só por áudio, com cota de minutos por workspace, limite por reunião e vagas.
+// - Planos modelados, mas a cobrança fica desligada (PlatformConfig.billingEnabled).
+// - Área de admin da plataforma: PlatformAdmin, PlatformConfig, AdminAction (registro que não se apaga).
+// - Suporte: chamados com prazo de resposta, notas internas, anexos apagados ao resolver/fechar, denúncias.
+// - LGPD: consentimentos com versão do documento, pedidos de cópia dos dados, exclusão de conta em 30 dias.
+//
+// O SQL das migrations continua sendo a fonte da verdade. Regras que o Prisma não expressa:
+//   * profiles.id = auth.users.id (FK para o schema auth criada em SQL).
+//   * messages: CHECK (num_nonnulls(channel_id, conversation_id) = 1).
+//   * team/project/channel do mesmo workspace (FK composta ou trigger).
+//   * meeting_participants: unique parcial (meeting_id, user_id) quando user_id não é nulo.
+//   * conversas diretas: um par canônico por conversa.
+//   * workspace_settings: CHECK message_retention_months IN (1,2,3,6,12); file_retention_hours IN (24,168,720).
+//     A escolha também precisa estar nas opções ligadas em platform_config (trigger).
+//   * Limite de workspaces de equipe por dono (platform_config.max_owned_team_workspaces): trigger no insert.
+//   * Só quem está em platform_admins altera platform_config, workspace_settings.calls_enabled,
+//     call_minutes_quota e plan (RLS + funções SECURITY DEFINER).
+//   * admin_actions: só INSERT (revogar UPDATE e DELETE para todos os papéis).
+//   * support_messages com is_internal = true: invisíveis para quem não é admin da plataforma (RLS).
+//   * RLS em todas as tabelas expostas ao cliente.
+//   * Sessões e dispositivos conectados vêm de auth.sessions (Supabase), não de uma tabela nossa.
+
+// O app usa supabase-js (com RLS), não o Prisma Client. Este arquivo é o
+// desenho do banco: `npm run db:sql` gera dele a migração de tabelas.
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────── Enums ─────────────────────────
+
+enum WorkspaceKind {
+  PERSONAL
+  TEAM
+}
+
+enum WorkspacePlan {
+  FREE
+  TEAM
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum TeamRole {
+  TEAM_ADMIN
+  TEAM_MEMBER
+}
+
+enum ProjectRole {
+  PROJECT_ADMIN
+  PROJECT_MEMBER
+}
+
+enum ChannelRole {
+  CHANNEL_MEMBER
+  CHANNEL_MODERATOR
+}
+
+enum TeamVisibility {
+  WORKSPACE
+  PRIVATE
+}
+
+enum ChannelVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum ChannelKind {
+  TEAM
+  PROJECT
+  CUSTOM
+}
+
+enum ConversationKind {
+  DIRECT
+  GROUP
+}
+
+enum ProjectStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  LIVE
+  ENDED
+  CANCELLED
+}
+
+enum MeetingEndReason {
+  HOST_ENDED
+  EMPTY
+  MAX_DURATION
+  QUOTA_EXHAUSTED
+  ADMIN
+}
+
+enum MeetingRole {
+  HOST
+  PARTICIPANT
+}
+
+enum EventResponse {
+  INVITED
+  ACCEPTED
+  DECLINED
+  TENTATIVE
+}
+
+enum EventVisibility {
+  PRIVATE
+  TEAM
+  WORKSPACE
+}
+
+enum AccountStatus {
+  ACTIVE
+  BLOCKED
+  DELETION_SCHEDULED
+}
+
+enum TicketCategory {
+  TECHNICAL
+  HOW_TO
+  ACCOUNT_DATA // pedidos da LGPD: prazo de 15 dias
+  MEETINGS_REQUEST
+  SUGGESTION
+  REPORT // denúncia
+}
+
+enum TicketStatus {
+  OPEN
+  WAITING_USER // fecha sozinho depois de platform_config.ticket_auto_close_days
+  RESOLVED
+  CLOSED_NO_REPLY
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
+enum ReportReason {
+  HARASSMENT
+  SPAM
+  ILLEGAL
+  PERSONAL_DATA
+  OTHER
+}
+
+enum ConsentType {
+  AGE_18 // "Tenho 18 anos ou mais" no cadastro (sem guardar data de nascimento)
+  TERMS
+  PRIVACY_POLICY
+  MARKETING_EMAIL
+  ANALYTICS
+}
+
+enum LegalDocType {
+  TERMS
+  PRIVACY_POLICY
+}
+
+enum HelpArticleStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum AccessEvent {
+  LOGIN
+  LOGIN_FAILED
+  TOKEN_REFRESH
+  LOGOUT
+  LOGOUT_ALL
+  PASSWORD_CHANGED
+  MFA_CHALLENGE
+}
+
+enum ErrorSource {
+  BROWSER
+  SERVER
+  EDGE_FUNCTION
+  CRON
+  WEBHOOK
+}
+
+enum ErrorStatus {
+  NEW
+  OPEN
+  RESOLVED
+  IGNORED
+  REGRESSED
+}
+
+enum ExportStatus {
+  PENDING
+  READY
+  EXPIRED
+  FAILED
+}
+
+// ───────────────────────── Identidade ─────────────────────────
+
+model Profile {
+  id                  String        @id @db.Uuid // = auth.users.id
+  displayName         String        @map("display_name")
+  username            String        @unique
+  avatarPath          String?       @map("avatar_path")
+  bio                 String?
+  timezone            String?
+  status              AccountStatus @default(ACTIVE)
+  blockedReason       String?       @map("blocked_reason")
+  deletionRequestedAt DateTime?     @map("deletion_requested_at") @db.Timestamptz(6) // apaga de vez 30 dias depois
+  onboardingStep      Int           @default(0) @map("onboarding_step") // "Primeiros passos" no primeiro acesso
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspacesCreated       Workspace[]
+  workspaceMemberships    WorkspaceMember[]
+  invitesCreated          WorkspaceInvite[]
+  teamsCreated            Team[]
+  teamMemberships         TeamMember[]
+  projectsCreated         Project[]
+  projectMemberships      ProjectMember[]
+  channelsCreated         Channel[]
+  channelMemberships      ChannelMember[]
+  conversationsCreated    Conversation[]
+  conversationMemberships ConversationMember[]
+  messages                Message[]
+  reactions               MessageReaction[]
+  attachmentsCreated      MessageAttachment[]
+  tasksCreated            Task[]
+  taskAssignments         TaskAssignee[]
+  taskComments            TaskComment[]
+  taskAttachments         TaskAttachment[]
+  meetingsCreated         Meeting[]
+  meetingParticipations   MeetingParticipant[]
+  meetingNotesEdited      MeetingNote[]
+  meetingRequests         MeetingRequest[]
+  eventsCreated           CalendarEvent[]
+  eventParticipations     EventParticipant[]
+  activityEvents          ActivityEvent[]
+  notifications           Notification[]
+  platformAdmin           PlatformAdmin?
+  adminActionsDone        AdminAction[]        @relation("AdminActionAdmin")
+  adminActionsReceived    AdminAction[]        @relation("AdminActionTarget")
+  ticketsOpened           SupportTicket[]      @relation("TicketRequester")
+  ticketsAssigned         SupportTicket[]      @relation("TicketAssignee")
+  supportMessages         SupportMessage[]
+  supportAttachments      SupportAttachment[]
+  reportsMade             Report[]             @relation("ReportReporter")
+  reportsReceived         Report[]             @relation("ReportReported")
+  consents                Consent[]
+  dataExports             DataExportRequest[]
+  helpArticlesEdited      HelpArticle[]
+
+  @@map("profiles")
+}
+
+// ───────────────────────── Plataforma (admin) ─────────────────────────
+
+model PlatformAdmin {
+  userId    String   @id @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("platform_admins")
+}
+
+// Uma linha só (id = 1). Tudo que aparece em Admin › Recursos e limites.
+model PlatformConfig {
+  id                       Int      @id @default(1)
+  billingEnabled           Boolean  @default(false) @map("billing_enabled")
+  callsForAllWorkspaces    Boolean  @default(false) @map("calls_for_all_workspaces")
+  supportGoalsOnSite       Boolean  @default(false) @map("support_goals_on_site")
+  signupOpen               Boolean  @default(true) @map("signup_open")
+  maintenanceMode          Boolean  @default(false) @map("maintenance_mode")
+  maintenanceMessage       String?  @map("maintenance_message")
+  // Prazos que os workspaces podem escolher
+  messageRetentionOptions  Int[]    @default([1, 2, 3, 6, 12]) @map("message_retention_options") // meses
+  fileRetentionOptions     Int[]    @default([24, 168]) @map("file_retention_options") // horas (720 = 30 dias, desligado)
+  defaultMessageMonths     Int      @default(3) @map("default_message_months")
+  defaultFileHours         Int      @default(24) @map("default_file_hours")
+  // Reuniões
+  callMinutesPerWorkspace  Int      @default(600) @map("call_minutes_per_workspace")
+  callMaxParticipants      Int      @default(5) @map("call_max_participants")
+  callMaxDurationMin       Int      @default(60) @map("call_max_duration_min")
+  callSlots                Int      @default(8) @map("call_slots")
+  livekitMonthlyMinutes    Int      @default(5000) @map("livekit_monthly_minutes")
+  livekitLockAtPercent     Int      @default(90) @map("livekit_lock_at_percent")
+  // Contas
+  maxOwnedTeamWorkspaces   Int      @default(1) @map("max_owned_team_workspaces")
+  // Suporte
+  ticketAutoCloseDays      Int      @default(7) @map("ticket_auto_close_days") // 5 ou 7
+  ticketReminderDaysBefore Int      @default(2) @map("ticket_reminder_days_before")
+  ticketRetentionMonths    Int      @default(12) @map("ticket_retention_months")
+  // Orbi / central de ajuda
+  botEnabled               Boolean  @default(true) @map("bot_enabled")
+  botAiEnabled             Boolean  @default(false) @map("bot_ai_enabled") // fase 2: IA usando só os artigos
+  botQuestionRetentionDays Int      @default(90) @map("bot_question_retention_days")
+  // Registros e erros (no próprio Supabase)
+  accessLogRetentionDays   Int      @default(180) @map("access_log_retention_days") // Marco Civil: 6 meses
+  errorRetentionDays       Int      @default(30) @map("error_retention_days")
+  errorSpikeThreshold      Int      @default(20) @map("error_spike_threshold") // erros do mesmo grupo
+  errorSpikeWindowMin      Int      @default(10) @map("error_spike_window_min")
+  // Anexos
+  chatAttachmentMaxMb      Int      @default(10) @map("chat_attachment_max_mb")
+  taskAttachmentMaxMb      Int      @default(25) @map("task_attachment_max_mb")
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("platform_config")
+}
+
+// Registro de ações do admin. Só INSERT (ver nota no topo).
+model AdminAction {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adminId      String?  @map("admin_id") @db.Uuid
+  action       String // ex.: calls_enabled, ownership_transferred, member_added, account_blocked, config_changed
+  workspaceId  String?  @map("workspace_id") @db.Uuid
+  targetUserId String?  @map("target_user_id") @db.Uuid
+  ticketId     String?  @map("ticket_id") @db.Uuid
+  reason       String
+  metadata     Json     @default("{}") // antes/depois, sem conteúdo de mensagens
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  admin      Profile?       @relation("AdminActionAdmin", fields: [adminId], references: [id], onDelete: SetNull)
+  targetUser Profile?       @relation("AdminActionTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+  workspace  Workspace?     @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  ticket     SupportTicket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([workspaceId, createdAt])
+  @@index([targetUserId, createdAt])
+  @@map("admin_actions")
+}
+
+// ───────────────────────── Workspace ─────────────────────────
+
+model Workspace {
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String
+  slug                String        @unique
+  kind                WorkspaceKind @default(TEAM) // PERSONAL é criado no cadastro
+  plan                WorkspacePlan @default(FREE)
+  description         String?
+  suspendedAt         DateTime?     @map("suspended_at") @db.Timestamptz(6)
+  deletionRequestedAt DateTime?     @map("deletion_requested_at") @db.Timestamptz(6) // apaga de vez 30 dias depois
+  createdById         String        @map("created_by") @db.Uuid
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  createdBy       Profile                 @relation(fields: [createdById], references: [id])
+  members         WorkspaceMember[]
+  invites         WorkspaceInvite[]
+  settings        WorkspaceSettings?
+  teams           Team[]
+  channels        Channel[]
+  conversations   Conversation[]
+  messages        Message[]
+  meetings        Meeting[]
+  meetingUsage    WorkspaceMeetingUsage[]
+  meetingRequests MeetingRequest[]
+  calendarEvents  CalendarEvent[]
+  activityEvents  ActivityEvent[]
+  notifications   Notification[]
+  adminActions    AdminAction[]
+  tickets         SupportTicket[]
+  reports         Report[]
+
+  @@index([kind])
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  workspaceId String        @map("workspace_id") @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  role        WorkspaceRole @default(MEMBER)
+  joinedAt    DateTime      @default(now()) @map("joined_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      Profile   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
+  @@index([userId])
+  @@map("workspace_members")
+}
+
+model WorkspaceInvite {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String        @map("workspace_id") @db.Uuid
+  email       String
+  role        WorkspaceRole @default(MEMBER)
+  tokenHash   String        @unique @map("token_hash") // nunca guardar o token puro
+  expiresAt   DateTime      @map("expires_at") @db.Timestamptz(6) // 7 dias
+  acceptedAt  DateTime?     @map("accepted_at") @db.Timestamptz(6)
+  revokedAt   DateTime?     @map("revoked_at") @db.Timestamptz(6)
+  createdById String        @map("created_by") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy Profile   @relation(fields: [createdById], references: [id])
+
+  @@index([workspaceId, email])
+  @@map("workspace_invites")
+}
+
+model WorkspaceSettings {
+  workspaceId              String            @id @map("workspace_id") @db.Uuid
+  allowGuests              Boolean           @default(true) @map("allow_guests")
+  defaultChannelVisibility ChannelVisibility @default(PUBLIC) @map("default_channel_visibility")
+  // Retenção (janela móvel)
+  messageRetentionMonths   Int               @default(3) @map("message_retention_months")
+  fileRetentionHours       Int               @default(24) @map("file_retention_hours")
+  // Reuniões (só o admin da plataforma altera estes três)
+  callsEnabled             Boolean           @default(false) @map("calls_enabled")
+  callMinutesQuota         Int?              @map("call_minutes_quota") // nulo = usa platform_config
+  callsEnabledAt           DateTime?         @map("calls_enabled_at") @db.Timestamptz(6)
+  createdAt                DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("workspace_settings")
+}
+
+// ───────────────────────── Equipes ─────────────────────────
+
+model Team {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String         @map("workspace_id") @db.Uuid
+  name        String
+  slug        String
+  description String?
+  visibility  TeamVisibility @default(WORKSPACE)
+  createdById String         @map("created_by") @db.Uuid
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy      Profile         @relation(fields: [createdById], references: [id])
+  members        TeamMember[]
+  projects       Project[]
+  channels       Channel[]
+  meetings       Meeting[]
+  calendarEvents CalendarEvent[]
+  activityEvents ActivityEvent[]
+
+  @@unique([workspaceId, slug])
+  @@map("teams")
+}
+
+model TeamMember {
+  teamId   String   @map("team_id") @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  role     TeamRole @default(TEAM_MEMBER)
+  joinedAt DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+
+  team Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, userId])
+  @@index([userId])
+  @@map("team_members")
+}
+
+// ───────────────────────── Projetos ─────────────────────────
+
+model Project {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teamId      String        @map("team_id") @db.Uuid
+  name        String
+  slug        String
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+  startDate   DateTime?     @map("start_date") @db.Date
+  dueDate     DateTime?     @map("due_date") @db.Date
+  createdById String        @map("created_by") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  team           Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy      Profile         @relation(fields: [createdById], references: [id])
+  members        ProjectMember[]
+  channels       Channel[]
+  taskStatuses   TaskStatus[]
+  tasks          Task[]
+  taskLabels     TaskLabel[]
+  meetings       Meeting[]
+  calendarEvents CalendarEvent[]
+  activityEvents ActivityEvent[]
+
+  @@unique([teamId, slug])
+  @@map("projects")
+}
+
+model ProjectMember {
+  projectId String      @map("project_id") @db.Uuid
+  userId    String      @map("user_id") @db.Uuid
+  role      ProjectRole @default(PROJECT_MEMBER)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@index([userId])
+  @@map("project_members")
+}
+
+// ───────────────────────── Canais e conversas ─────────────────────────
+
+model Channel {
+  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String            @map("workspace_id") @db.Uuid
+  teamId      String?           @map("team_id") @db.Uuid
+  projectId   String?           @map("project_id") @db.Uuid
+  name        String
+  description String?
+  kind        ChannelKind       @default(CUSTOM)
+  visibility  ChannelVisibility @default(PUBLIC)
+  createdById String            @map("created_by") @db.Uuid
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  team      Team?           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  project   Project?        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy Profile         @relation(fields: [createdById], references: [id])
+  members   ChannelMember[]
+  messages  Message[]
+
+  @@index([workspaceId])
+  @@index([teamId])
+  @@index([projectId])
+  @@map("channels")
+}
+
+model ChannelMember {
+  channelId  String      @map("channel_id") @db.Uuid
+  userId     String      @map("user_id") @db.Uuid
+  role       ChannelRole @default(CHANNEL_MEMBER)
+  lastReadAt DateTime?   @map("last_read_at") @db.Timestamptz(6) // contagem de não lidas
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([channelId, userId])
+  @@index([userId])
+  @@map("channel_members")
+}
+
+model Conversation {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String           @map("workspace_id") @db.Uuid
+  kind        ConversationKind
+  createdById String           @map("created_by") @db.Uuid
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy Profile              @relation(fields: [createdById], references: [id])
+  members   ConversationMember[]
+  messages  Message[]
+
+  @@index([workspaceId])
+  @@map("conversations")
+}
+
+model ConversationMember {
+  conversationId String    @map("conversation_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  joinedAt       DateTime  @default(now()) @map("joined_at") @db.Timestamptz(6)
+  lastReadAt     DateTime? @map("last_read_at") @db.Timestamptz(6)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         Profile      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_members")
+}
+
+// Sem expires_at: a limpeza apaga created_at < now() - workspace_settings.message_retention_months.
+// Quando a mensagem principal expira, as respostas da thread vão junto (cascade).
+model Message {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId     String    @map("workspace_id") @db.Uuid
+  channelId       String?   @map("channel_id") @db.Uuid
+  conversationId  String?   @map("conversation_id") @db.Uuid
+  senderId        String?   @map("sender_id") @db.Uuid // nulo = "Pessoa removida"
+  parentMessageId String?   @map("parent_message_id") @db.Uuid
+  content         String
+  editedAt        DateTime? @map("edited_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace    Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  channel      Channel?            @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  conversation Conversation?       @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       Profile?            @relation(fields: [senderId], references: [id], onDelete: SetNull)
+  parent       Message?            @relation("Thread", fields: [parentMessageId], references: [id], onDelete: Cascade)
+  replies      Message[]           @relation("Thread")
+  reactions    MessageReaction[]
+  attachments  MessageAttachment[]
+  reports      Report[]
+
+  @@index([workspaceId, createdAt]) // usado pela limpeza
+  @@index([channelId, createdAt])
+  @@index([conversationId, createdAt])
+  @@index([parentMessageId])
+  @@map("messages")
+}
+
+model MessageReaction {
+  messageId String @map("message_id") @db.Uuid
+  userId    String @map("user_id") @db.Uuid
+  emoji     String
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId, emoji])
+  @@map("message_reactions")
+}
+
+// Arquivo do chat. Depois de workspace_settings.file_retention_hours, o job apaga o objeto no Storage
+// e preenche expired_at; a linha fica para a mensagem mostrar "Arquivo expirado".
+model MessageAttachment {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId   String    @map("message_id") @db.Uuid
+  storagePath String?   @map("storage_path") // nulo depois de expirar
+  fileName    String    @map("file_name")
+  mimeType    String    @map("mime_type")
+  sizeBytes   BigInt    @map("size_bytes")
+  expiredAt   DateTime? @map("expired_at") @db.Timestamptz(6)
+  createdById String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  createdBy Profile? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([messageId])
+  @@index([createdAt]) // usado pela limpeza de arquivos
+  @@map("message_attachments")
+}
+
+// ───────────────────────── Tarefas ─────────────────────────
+
+model TaskStatus {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId   String  @map("project_id") @db.Uuid
+  name        String
+  position    Int
+  isCompleted Boolean @default(false) @map("is_completed")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@unique([projectId, position])
+  @@map("task_statuses")
+}
+
+model Task {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId       String       @map("project_id") @db.Uuid
+  statusId        String       @map("status_id") @db.Uuid
+  position        String // índice fracionário (ex.: "a0V"): arrastar muda só este cartão
+  title           String
+  description     String?
+  priority        TaskPriority @default(MEDIUM)
+  dueAt           DateTime?    @map("due_at") @db.Timestamptz(6)
+  createdById     String?      @map("created_by") @db.Uuid
+  sourceMeetingId String?      @map("source_meeting_id") @db.Uuid
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  completedAt     DateTime?    @map("completed_at") @db.Timestamptz(6)
+
+  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status        TaskStatus       @relation(fields: [statusId], references: [id])
+  createdBy     Profile?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  sourceMeeting Meeting?         @relation(fields: [sourceMeetingId], references: [id], onDelete: SetNull)
+  assignees     TaskAssignee[]
+  labelLinks    TaskLabelLink[]
+  comments      TaskComment[]
+  attachments   TaskAttachment[]
+
+  @@index([projectId, statusId, position])
+  @@index([dueAt])
+  @@map("tasks")
+}
+
+model TaskAssignee {
+  taskId String @map("task_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  task Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+  @@index([userId])
+  @@map("task_assignees")
+}
+
+model TaskLabel {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId String @map("project_id") @db.Uuid
+  name      String
+  color     String
+
+  project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  links   TaskLabelLink[]
+
+  @@unique([projectId, name])
+  @@map("task_labels")
+}
+
+model TaskLabelLink {
+  taskId  String @map("task_id") @db.Uuid
+  labelId String @map("label_id") @db.Uuid
+
+  task  Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label TaskLabel @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, labelId])
+  @@map("task_label_links")
+}
+
+model TaskComment {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId    String    @map("task_id") @db.Uuid
+  authorId  String?   @map("author_id") @db.Uuid
+  content   String
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  task   Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author Profile? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([taskId, createdAt])
+  @@map("task_comments")
+}
+
+// Não expira. "Salvar na tarefa" copia o objeto do chat para cá antes de ele vencer.
+model TaskAttachment {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId                String   @map("task_id") @db.Uuid
+  storagePath           String   @map("storage_path")
+  fileName              String   @map("file_name")
+  mimeType              String   @map("mime_type")
+  sizeBytes             BigInt   @map("size_bytes")
+  sourceMessageAttachId String?  @map("source_message_attachment_id") @db.Uuid
+  createdById           String?  @map("created_by") @db.Uuid
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdBy Profile? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([taskId])
+  @@map("task_attachments")
+}
+
+// ───────────────────────── Reuniões (só áudio) ─────────────────────────
+
+model Meeting {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId     String            @map("workspace_id") @db.Uuid
+  teamId          String?           @map("team_id") @db.Uuid
+  projectId       String?           @map("project_id") @db.Uuid
+  calendarEventId String?           @unique @map("calendar_event_id") @db.Uuid
+  createdById     String?           @map("created_by") @db.Uuid
+  title           String
+  roomKey         String            @unique @map("room_key") // aleatório; nenhuma mídia é guardada
+  status          MeetingStatus     @default(SCHEDULED)
+  maxParticipants Int               @default(5) @map("max_participants") // copiado de platform_config ao criar
+  maxDurationMin  Int               @default(60) @map("max_duration_min")
+  startsAt        DateTime?         @map("starts_at") @db.Timestamptz(6)
+  startedAt       DateTime?         @map("started_at") @db.Timestamptz(6) // webhook room_started
+  hardEndAt       DateTime?         @map("hard_end_at") @db.Timestamptz(6) // started_at + max_duration ou fim do saldo
+  endedAt         DateTime?         @map("ended_at") @db.Timestamptz(6)
+  endReason       MeetingEndReason? @map("end_reason")
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace     Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  team          Team?                @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  project       Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  calendarEvent CalendarEvent?       @relation(fields: [calendarEventId], references: [id], onDelete: SetNull)
+  createdBy     Profile?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  participants  MeetingParticipant[]
+  notes         MeetingNote?
+  tasks         Task[]
+
+  @@index([workspaceId, startsAt])
+  @@index([status, hardEndAt]) // job que encerra salas por tempo ou saldo
+  @@map("meetings")
+}
+
+// Preenchido pelos webhooks do LiveKit (participant_joined / participant_left).
+// Minutos = soma de (left_at - joined_at) por pessoa.
+model MeetingParticipant {
+  id        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  meetingId String      @map("meeting_id") @db.Uuid
+  userId    String?     @map("user_id") @db.Uuid
+  guestName String?     @map("guest_name")
+  role      MeetingRole @default(PARTICIPANT)
+  joinedAt  DateTime?   @map("joined_at") @db.Timestamptz(6)
+  leftAt    DateTime?   @map("left_at") @db.Timestamptz(6)
+
+  meeting Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user    Profile? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([meetingId])
+  @@index([userId])
+  @@map("meeting_participants")
+}
+
+// Saldo do mês por workspace. Atualizado a cada participant_left; conferido antes de gerar o token.
+model WorkspaceMeetingUsage {
+  workspaceId String   @map("workspace_id") @db.Uuid
+  month       DateTime @db.Date // primeiro dia do mês
+  minutesUsed Int      @default(0) @map("minutes_used")
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, month])
+  @@map("workspace_meeting_usage")
+}
+
+// Botão "Quero reuniões neste workspace".
+model MeetingRequest {
+  workspaceId String   @map("workspace_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      Profile   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
+  @@map("meeting_requests")
+}
+
+model MeetingNote {
+  meetingId   String   @id @map("meeting_id") @db.Uuid
+  content     String   @default("")
+  decisions   Json     @default("[]")
+  updatedById String?  @map("updated_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  updatedBy Profile? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("meeting_notes")
+}
+
+// ───────────────────────── Calendário ─────────────────────────
+
+model CalendarEvent {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId    String          @map("workspace_id") @db.Uuid
+  teamId         String?         @map("team_id") @db.Uuid
+  projectId      String?         @map("project_id") @db.Uuid
+  createdById    String?         @map("created_by") @db.Uuid
+  title          String
+  description    String?
+  startsAt       DateTime        @map("starts_at") @db.Timestamptz(6) // sempre UTC
+  endsAt         DateTime        @map("ends_at") @db.Timestamptz(6)
+  timezone       String
+  visibility     EventVisibility @default(TEAM)
+  reminderMin    Int?            @default(10) @map("reminder_min") // lembrete no sino
+  reminderSentAt DateTime?       @map("reminder_sent_at") @db.Timestamptz(6)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace    Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  team         Team?              @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  project      Project?           @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdBy    Profile?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  meeting      Meeting?
+  participants EventParticipant[]
+
+  @@index([workspaceId, startsAt])
+  @@index([reminderSentAt, startsAt]) // job de lembretes
+  @@map("calendar_events")
+}
+
+model EventParticipant {
+  eventId  String        @map("event_id") @db.Uuid
+  userId   String        @map("user_id") @db.Uuid
+  response EventResponse @default(INVITED)
+
+  event CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  Profile       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, userId])
+  @@index([userId])
+  @@map("event_participants")
+}
+
+// ───────────────────────── Atividade e notificações ─────────────────────────
+
+model ActivityEvent {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
+  actorId     String?  @map("actor_id") @db.Uuid
+  teamId      String?  @map("team_id") @db.Uuid
+  projectId   String?  @map("project_id") @db.Uuid
+  eventType   String   @map("event_type")
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id") @db.Uuid
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor     Profile?  @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  team      Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  project   Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([projectId, createdAt])
+  @@map("activity_events")
+}
+
+// Só no app (sino). E-mail fica para o essencial: confirmação, senha, convite e mudança de política.
+model Notification {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  workspaceId String?   @map("workspace_id") @db.Uuid // nulo = aviso da plataforma (suporte, política)
+  type        String
+  title       String
+  body        String?
+  payload     Json      @default("{}") // sem conteúdo sensível de mensagens
+  readAt      DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user      Profile    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+// ───────────────────────── Suporte e denúncias ─────────────────────────
+
+model SupportTicket {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number           Int            @unique @default(autoincrement()) // #1042
+  requesterId      String?        @map("requester_id") @db.Uuid // nulo em denúncia anônima ou conta apagada
+  workspaceId      String?        @map("workspace_id") @db.Uuid
+  category         TicketCategory
+  status           TicketStatus   @default(OPEN)
+  priority         TicketPriority @default(NORMAL)
+  title            String
+  shareTechData    Boolean        @default(true) @map("share_tech_data")
+  techData         Json           @default("{}") @map("tech_data") // navegador, sistema, configurações; nunca mensagens
+  assigneeId       String?        @map("assignee_id") @db.Uuid
+  lastStaffReplyAt DateTime?      @map("last_staff_reply_at") @db.Timestamptz(6)
+  autoCloseAt      DateTime?      @map("auto_close_at") @db.Timestamptz(6) // last_staff_reply_at + ticket_auto_close_days
+  legalDueAt       DateTime?      @map("legal_due_at") @db.Timestamptz(6) // ACCOUNT_DATA: aberto + 15 dias
+  resolvedAt       DateTime?      @map("resolved_at") @db.Timestamptz(6)
+  closedAt         DateTime?      @map("closed_at") @db.Timestamptz(6)
+  purgeAfter       DateTime?      @map("purge_after") @db.Timestamptz(6) // resolvido/fechado + 12 meses
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  requester    Profile?            @relation("TicketRequester", fields: [requesterId], references: [id], onDelete: SetNull)
+  assignee     Profile?            @relation("TicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  workspace    Workspace?          @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  messages     SupportMessage[]
+  attachments  SupportAttachment[]
+  report       Report?
+  botQuestions BotQuestion[]
+  adminActions AdminAction[]
+
+  @@index([status, updatedAt])
+  @@index([status, autoCloseAt]) // job que fecha sem resposta
+  @@index([requesterId])
+  @@map("support_tickets")
+}
+
+model SupportMessage {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticketId   String   @map("ticket_id") @db.Uuid
+  authorId   String?  @map("author_id") @db.Uuid
+  isStaff    Boolean  @default(false) @map("is_staff")
+  isInternal Boolean  @default(false) @map("is_internal") // nota interna: só admins (RLS)
+  body       String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  ticket      SupportTicket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author      Profile?            @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  attachments SupportAttachment[]
+
+  @@index([ticketId, createdAt])
+  @@map("support_messages")
+}
+
+// Apagados quando o chamado é resolvido ou fechado sem resposta.
+model SupportAttachment {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticketId    String    @map("ticket_id") @db.Uuid
+  messageId   String?   @map("message_id") @db.Uuid
+  storagePath String?   @map("storage_path") // nulo depois de apagado
+  fileName    String    @map("file_name")
+  mimeType    String    @map("mime_type")
+  sizeBytes   BigInt    @map("size_bytes")
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdById String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  ticket    SupportTicket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  message   SupportMessage? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  createdBy Profile?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([ticketId])
+  @@map("support_attachments")
+}
+
+// Denúncia. Guarda uma cópia do texto denunciado, porque a mensagem pode expirar antes da análise.
+// A cópia segue o prazo do chamado (12 meses depois de resolvido).
+model Report {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticketId        String       @unique @map("ticket_id") @db.Uuid
+  reporterId      String?      @map("reporter_id") @db.Uuid // nunca mostrado a quem foi denunciado
+  workspaceId     String?      @map("workspace_id") @db.Uuid
+  messageId       String?      @map("message_id") @db.Uuid
+  reportedUserId  String?      @map("reported_user_id") @db.Uuid
+  reason          ReportReason
+  details         String?
+  contentSnapshot String?      @map("content_snapshot")
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  reporter     Profile?      @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  reportedUser Profile?      @relation("ReportReported", fields: [reportedUserId], references: [id], onDelete: SetNull)
+  workspace    Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  message      Message?      @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@map("reports")
+}
+
+// ───────────────────────── LGPD ─────────────────────────
+
+model LegalDocument {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type        LegalDocType
+  version     Int
+  summary     String // o que mudou, mostrado no aviso "Atualizamos a política"
+  publishedAt DateTime     @map("published_at") @db.Timestamptz(6)
+  effectiveAt DateTime     @map("effective_at") @db.Timestamptz(6)
+
+  @@unique([type, version])
+  @@map("legal_documents")
+}
+
+// Uma linha por decisão (aceitou, recusou, revogou). Nunca atualizar: inserir uma nova.
+model Consent {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String      @map("user_id") @db.Uuid
+  type       ConsentType
+  granted    Boolean
+  docVersion Int?        @map("doc_version") // para TERMS e PRIVACY_POLICY
+  source     String      @default("app") // cadastro, banner, configurações
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type, createdAt])
+  @@map("consents")
+}
+
+// "Baixar uma cópia dos seus dados": gerado em segundo plano; o link vale 7 dias.
+model DataExportRequest {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String       @map("user_id") @db.Uuid
+  status      ExportStatus @default(PENDING)
+  storagePath String?      @map("storage_path")
+  expiresAt   DateTime?    @map("expires_at") @db.Timestamptz(6)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  readyAt     DateTime?    @map("ready_at") @db.Timestamptz(6)
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("data_export_requests")
+}
+
+// ───────────────────────── Jobs agendados (pg_cron / Edge Functions) ─────────────────────────
+// 03:00 limpeza de mensagens (janela móvel) e de arquivos do chat (Storage + expired_at)
+// 04:00 backup (GitHub Action com pg_dump; guarda 7 dias)
+// a cada minuto: lembretes de eventos; salas que passaram de hard_end_at (encerrar via API do LiveKit)
+// a cada hora: chamados WAITING_USER com auto_close_at vencido → CLOSED_NO_REPLY + apagar anexos;
+//              aviso 2 dias antes; chamados com purge_after vencido → apagar
+// diário: contas e workspaces com deletion_requested_at + 30 dias → apagar de vez;
+//         data_export_requests vencidos → apagar arquivo
+// diário: bot_questions mais velhas que 90 dias → apagar
+// a cada 6 dias: consulta leve para o projeto do Supabase grátis não pausar
+
+// ───────────────────────── Central de ajuda e Orbi ─────────────────────────
+
+model HelpCategory {
+  id       String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug     String        @unique
+  name     String
+  icon     String // nome do ícone no app
+  position Int
+  articles HelpArticle[]
+
+  @@map("help_categories")
+}
+
+// Fonte única das respostas do Orbi. Pública em /ajuda quando PUBLISHED.
+model HelpArticle {
+  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  categoryId  String            @map("category_id") @db.Uuid
+  slug        String            @unique
+  title       String
+  summary     String // resposta curta que o Orbi mostra no chat
+  body        String // markdown do artigo completo
+  keywords    String[]          @default([]) // ajuda a busca: "convite", "chamar pessoa"
+  actionLabel String?           @map("action_label") // botão de atalho: "Abrir convites"
+  actionPath  String?           @map("action_path") // rota no app: /settings/members?invite=1
+  status      HelpArticleStatus @default(DRAFT)
+  views       Int               @default(0)
+  helpfulYes  Int               @default(0) @map("helpful_yes")
+  helpfulNo   Int               @default(0) @map("helpful_no")
+  updatedById String?           @map("updated_by") @db.Uuid
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  // busca: coluna tsvector em português criada em SQL (to_tsvector('portuguese', title || summary || body))
+
+  category     HelpCategory  @relation(fields: [categoryId], references: [id])
+  updatedBy    Profile?      @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+  botQuestions BotQuestion[]
+
+  @@index([categoryId, status])
+  @@map("help_articles")
+}
+
+// Perguntas feitas ao Orbi, sem identificar quem perguntou. Apagadas depois de bot_question_retention_days.
+model BotQuestion {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  question  String
+  articleId String?  @map("article_id") @db.Uuid // nulo = sem resposta
+  helpful   Boolean?
+  ticketId  String?  @map("ticket_id") @db.Uuid // virou chamado
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  article HelpArticle?   @relation(fields: [articleId], references: [id], onDelete: SetNull)
+  ticket  SupportTicket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([articleId])
+  @@map("bot_questions")
+}
+
+// ─── Registros de acesso (Marco Civil art. 15) ────────────────────────────
+// Só entrada, renovação e saída de sessão. Sem FK para users: o registro
+// precisa durar os 6 meses mesmo se a conta for excluída. Só platform_admins
+// leem (RLS), e cada consulta por pessoa gera uma AdminAction com motivo.
+model AccessLog {
+  id        BigInt      @id @default(autoincrement())
+  userId    String?     @map("user_id") @db.Uuid
+  event     AccessEvent
+  method    String? // password, google, magic_link
+  ip        String      @db.Inet
+  userAgent String?     @map("user_agent") // resumido: navegador + sistema
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("access_logs")
+}
+
+// ─── Erros do app, agrupados ──────────────────────────────────────────────
+// Um registro por grupo (fingerprint = tipo + mensagem normalizada + local).
+// Nunca guardar texto de mensagem, e-mail, token ou conteúdo: só IDs.
+model ErrorEvent {
+  id                 String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fingerprint        String      @unique
+  source             ErrorSource
+  status             ErrorStatus @default(NEW)
+  message            String // até 500 caracteres
+  location           String // rota, função ou rotina
+  stack              String? // até 8 KB
+  release            String? // versão do deploy
+  count              Int         @default(1)
+  usersAffected      Int         @default(0) @map("users_affected")
+  sampleUserIds      String[]    @default([]) @map("sample_user_ids") @db.Uuid // até 20
+  sampleWorkspaceIds String[]    @default([]) @map("sample_workspace_ids") @db.Uuid
+  browsers           Json? // {"Chrome": 18, "Safari": 3}
+  firstSeenAt        DateTime    @default(now()) @map("first_seen_at") @db.Timestamptz(6)
+  lastSeenAt         DateTime    @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  resolvedAt         DateTime?   @map("resolved_at") @db.Timestamptz(6)
+  resolvedById       String?     @map("resolved_by_id") @db.Uuid
+  alertedAt          DateTime?   @map("alerted_at") @db.Timestamptz(6)
+
+  hourly ErrorHourlyCount[]
+
+  @@index([status, lastSeenAt])
+  @@map("error_events")
+}
+
+// Contagem por hora de cada grupo (gráfico e detecção de pico). Some com o grupo.
+model ErrorHourlyCount {
+  errorId String     @map("error_id") @db.Uuid
+  hour    DateTime   @db.Timestamptz(6)
+  count   Int        @default(0)
+  error   ErrorEvent @relation(fields: [errorId], references: [id], onDelete: Cascade)
+
+  @@id([errorId, hour])
+  @@map("error_hourly_counts")
+}

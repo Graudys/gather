@@ -1,0 +1,40 @@
+{
+  "name": "gather",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit",
+    "db:sql": "python3 scripts/prisma2sql.py prisma/schema.prisma supabase/migrations/20261124000100_tabelas.sql",
+    "db:validate": "node -e \"const w=require('@prisma/prisma-schema-wasm');w.validate(JSON.stringify({prismaSchema:[['schema.prisma',require('fs').readFileSync('prisma/schema.prisma','utf8')]]}));console.log('schema.prisma ok')\"",
+    "db:test": "bash scripts/db-test.sh",
+    "db:types": "supabase gen types typescript --linked > src/lib/supabase/database.types.ts"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.119.2",
+    "geist": "^1.9.2",
+    "livekit-client": "^2.25.0",
+    "livekit-server-sdk": "^2.20.1",
+    "next": "16.4.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@prisma/prisma-schema-wasm": "^8.1.0-2.59be4fda12412a79eeb9c2ae727b6aa723593323",
+    "@tailwindcss/turbopack": "4.3.3",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.6",
+    "supabase": "^3.3.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "^5"
+  }
+}
