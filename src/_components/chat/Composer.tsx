@@ -2,24 +2,41 @@
 import { useRef, useState } from "react";
 import { sendMessage } from "@/_data/chat.actions";
 import { Button } from "@/_components/ui/Button";
+import { Icon } from "@/_components/ui/Icon";
+import { AttachDialog } from "@/_components/files/AttachDialog";
 import { LIMITES } from "@/lib/validation";
 import s from "@/_styles/chat/Chat.module.css";
+import f from "@/_styles/files/Files.module.css";
 
 type Target = { channelId?: string; conversationId?: string };
 
-/** Caixa de mensagem. Enter envia, Shift+Enter quebra a linha. */
-export function Composer({ workspaceId, target, parentId, placeholder, compact }: {
-  workspaceId: string; target: Target; parentId?: string; placeholder: string; compact?: boolean;
+const hoursText = (h: number) => (h === 24 ? "24 horas" : h === 168 ? "7 dias" : h % 24 === 0 ? `${h / 24} dias` : `${h} horas`);
+
+/** Caixa de mensagem. Enter envia, Shift+Enter quebra a linha. Clipe, arrastar ou colar anexa arquivos. */
+export function Composer({ workspaceId, target, parentId, placeholder, compact, fileHours = 24, where }: {
+  workspaceId: string; target: Target; parentId?: string; placeholder: string; compact?: boolean; fileHours?: number; where?: string;
 }) {
   const form = useRef<HTMLFormElement>(null);
   const area = useRef<HTMLTextAreaElement>(null);
   const [sending, setSending] = useState(false);
+  const [attach, setAttach] = useState<{ files: File[]; text: string } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const dest = target.channelId ? `c:${target.channelId}` : `dm:${target.conversationId}`;
 
   const grow = () => {
     const el = area.current;
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  };
+
+  const base = () => {
+    const fd = new FormData();
+    fd.set("workspaceId", workspaceId);
+    fd.set("channelId", target.channelId ?? "");
+    fd.set("conversationId", target.conversationId ?? "");
+    fd.set("parentId", parentId ?? "");
+    return fd;
   };
 
   async function action(fd: FormData) {
@@ -35,8 +52,24 @@ export function Composer({ workspaceId, target, parentId, placeholder, compact }
     }
   }
 
+  const openAttach = (files: File[] = []) => setAttach({ files, text: area.current?.value ?? "" });
+
   return (
-    <form ref={form} action={action} className={compact ? s.threadComposer : s.composer}>
+    <form
+      ref={form}
+      action={action}
+      className={compact ? s.threadComposer : s.composer}
+      onDragEnter={(e) => e.dataTransfer.types.includes("Files") && setDragging(true)}
+      onDragOver={(e) => e.dataTransfer.types.includes("Files") && e.preventDefault()}
+      onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setDragging(false)}
+      onDrop={(e) => {
+        if (!e.dataTransfer.files.length) return;
+        e.preventDefault();
+        setDragging(false);
+        openAttach([...e.dataTransfer.files]);
+      }}
+      style={{ position: "relative" }}
+    >
       <input type="hidden" name="workspaceId" value={workspaceId} />
       <input type="hidden" name="channelId" value={target.channelId ?? ""} />
       <input type="hidden" name="conversationId" value={target.conversationId ?? ""} />
@@ -51,6 +84,13 @@ export function Composer({ workspaceId, target, parentId, placeholder, compact }
           placeholder={placeholder}
           className={s.textarea}
           onInput={grow}
+          onPaste={(e) => {
+            const files = [...e.clipboardData.files];
+            if (files.length) {
+              e.preventDefault();
+              openAttach(files);
+            }
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault();
@@ -59,9 +99,30 @@ export function Composer({ workspaceId, target, parentId, placeholder, compact }
           }}
           aria-label={placeholder}
         />
-        <Button>{sending ? "Enviando…" : "Enviar"}</Button>
+        <button type="button" className={s.attachBtn} onClick={() => openAttach()} aria-label="Anexar arquivo" title="Anexar arquivo ou foto"><Icon name="clip" size={18} /></button>
+        <Button>{sending ? "Enviando…" : <><Icon name="right" size={14} /> Enviar</>}</Button>
       </div>
-      {!compact && <p className={s.hint}>Enter envia · Shift + Enter quebra a linha</p>}
+      {!compact && <p className={s.hint}>Enter envia · Shift + Enter quebra a linha · arraste ou cole arquivos</p>}
+      {dragging && <div className={f.dragHint}><Icon name="clip" size={18} /> Solte para anexar</div>}
+      {attach && (
+        <AttachDialog
+          workspaceId={workspaceId}
+          dest={dest}
+          where={where}
+          initial={attach.files}
+          initialText={attach.text}
+          note={`Arquivos do chat ficam ${hoursText(fileHours)}. Para guardar, anexe a uma tarefa.`}
+          onClose={() => setAttach(null)}
+          onSend={async (tickets, text) => {
+            const fd = base();
+            fd.set("content", text.trim());
+            tickets.forEach((t) => fd.append("files", t));
+            await sendMessage(fd);
+            form.current?.reset();
+            grow();
+          }}
+        />
+      )}
     </form>
   );
 }

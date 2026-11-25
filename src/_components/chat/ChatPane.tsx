@@ -9,12 +9,13 @@ const shortDate = (iso: string) =>
   new Date(iso).toLocaleDateString("pt-BR", { day: "numeric", month: "long", timeZone: "America/Sao_Paulo" });
 
 /** Conversa aberta: cabeçalho, mensagens, caixa de texto e (se aberta) a thread. */
-export function ChatPane({ view, workspaceId, base, limit, months }: {
+export function ChatPane({ view, workspaceId, base, limit, months, fileHours = 24 }: {
   view: ChatView;
   workspaceId: string;
   base: string; // /app/w/<ws>/c/<canal> ou /app/w/<ws>/dm/<conversa>
   limit: number;
   months: number;
+  fileHours?: number;
 }) {
   const isChannel = view.target.kind === "channel";
   const target = isChannel ? { channelId: view.target.id } : { conversationId: view.target.id };
@@ -71,7 +72,7 @@ export function ChatPane({ view, workspaceId, base, limit, months }: {
           )}
         </div>
 
-        <Composer workspaceId={workspaceId} target={target} placeholder={placeholder} />
+        <Composer workspaceId={workspaceId} target={target} placeholder={placeholder} fileHours={fileHours} where={view.target.kind === "channel" ? `Em # ${view.title}` : `Com ${view.title}`} />
       </section>
 
       {view.thread && (
@@ -93,7 +94,7 @@ export function ChatPane({ view, workspaceId, base, limit, months }: {
             </div>
           </div>
           {!view.thread.parent.deleted && (
-            <Composer workspaceId={workspaceId} target={target} parentId={view.thread.parent.id} placeholder="Responder na thread" compact />
+            <Composer workspaceId={workspaceId} target={target} parentId={view.thread.parent.id} placeholder="Responder na thread" compact fileHours={fileHours} where="Na thread" />
           )}
         </aside>
       )}

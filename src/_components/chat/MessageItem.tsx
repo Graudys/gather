@@ -1,5 +1,6 @@
 "use client";
 import { Icon } from "@/_components/ui/Icon";
+import { FileList } from "@/_components/files/FileList";
 import Link from "next/link";
 import { useState } from "react";
 import type { ChatMessage } from "@/types/domain";
@@ -84,10 +85,15 @@ export function MessageItem({ m, workspaceId, time, compact, threadHref }: Props
             </div>
           </form>
         ) : (
-          <p className={s.text}>
-            {m.content}
-            {m.edited && <span className={s.edited}>(editada)</span>}
-          </p>
+          <>
+            {(m.content || m.deleted) && (
+              <p className={s.text}>
+                {m.content}
+                {m.edited && <span className={s.edited}>(editada)</span>}
+              </p>
+            )}
+            <FileList files={m.files} />
+          </>
         )}
 
         {m.reactions.length > 0 && (

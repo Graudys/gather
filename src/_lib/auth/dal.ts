@@ -22,8 +22,10 @@ export type SessionUser = {
 };
 
 /** Pessoa da sessão (conferida no banco a cada requisição). `null` se não entrou. */
+const rawSession = cache(async () => auth.api.getSession({ headers: await headers() }));
+
 export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
-  const s = await auth.api.getSession({ headers: await headers() });
+  const s = await rawSession();
   if (!s?.user || s.user.banned) return null;
   const u = s.user;
   const mustChange = u.mustChangePassword !== false;
@@ -36,6 +38,12 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     ready: !mustChange && Boolean(u.ageConfirmedAt) && Boolean(u.termsAcceptedAt),
   };
 });
+
+/** Id da sessão deste aparelho (usado para prender a inscrição de notificações a ela). */
+export async function getSessionId(): Promise<string | null> {
+  const s = await rawSession();
+  return (s?.session as { id?: string } | undefined)?.id ?? null;
+}
 
 export async function requireUser(next?: string) {
   const user = await getSessionUser();

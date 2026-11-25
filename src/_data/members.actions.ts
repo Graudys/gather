@@ -2,6 +2,8 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { filesOf } from "@/_data/files.server";
+import { removeObjects } from "@/_lib/server/storage";
 import { db } from "@/_lib/db/prisma";
 import { requireMember } from "@/_lib/auth/dal";
 import { email as Email, id as Id, nomeWorkspace } from "@/lib/validation";
@@ -146,6 +148,8 @@ export async function deleteWorkspace(form: FormData) {
   const ctx = await requireMember(p.data.workspaceId, ["OWNER"]);
   if (ctx.workspace.kind === "PERSONAL") return back(p.data.workspaceId, "erro=pessoal");
   if (p.data.confirm.trim() !== ctx.workspace.name) return back(p.data.workspaceId, "erro=confirmacao");
+  const files = await filesOf({ workspaceId: ctx.workspace.id });
   await db.workspace.delete({ where: { id: ctx.workspace.id } }); // tudo do workspace vai junto (cascade)
+  await removeObjects(files);
   redirect("/app");
 }

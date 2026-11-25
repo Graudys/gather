@@ -12,20 +12,25 @@ export async function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const isDev = process.env.NODE_ENV !== "production";
   const livekitUrl = process.env.LIVEKIT_URL ?? "";
+  // Arquivos: o navegador envia direto ao Supabase Storage e abre os links assinados de lá.
+  const storageUrl = (process.env.SUPABASE_URL ?? "").replace(/\/$/, "");
   const csp = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
     // React usa atributo style=; sem nonce para atributos, por isso 'unsafe-inline' só em estilo.
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' blob: data:",
+    `img-src 'self' blob: data: ${storageUrl}`.trim(),
     "font-src 'self'",
-    `connect-src 'self' ${livekitUrl} ${livekitUrl.replace(/^wss:/, "https:")}`.trim(),
-    "media-src 'self' blob:",
+    `connect-src 'self' ${livekitUrl} ${livekitUrl.replace(/^wss:/, "https:")} ${storageUrl}`.replace(/\s+/g, " ").trim(),
+    `media-src 'self' blob: ${storageUrl}`.trim(),
     "frame-ancestors 'none'",
     "form-action 'self'",
     "base-uri 'self'",
     "object-src 'none'",
     "manifest-src 'self'",
+    // Service worker do PWA (public/sw.js). Com 'strict-dynamic' no script-src,
+    // sem esta linha o navegador recusaria registrar o worker.
+    "worker-src 'self'",
     ...(isDev ? [] : ["upgrade-insecure-requests"]),
   ].join("; ");
 
@@ -49,7 +54,7 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     {
-      source: "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|manifest.webmanifest|icons/|api/cron|api/livekit/webhook|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+      source: "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|manifest.webmanifest|sw.js|icons/|api/cron|api/livekit/webhook|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },

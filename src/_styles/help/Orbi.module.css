@@ -2,28 +2,16 @@
 .fab { position: fixed; right: 22px; bottom: 24px; z-index: 60; width: 60px; height: 60px; border-radius: 50%; border: 1px solid var(--line-3); cursor: pointer; background: var(--surface-2); color: var(--text); display: grid; place-items: center; box-shadow: 0 10px 30px rgba(85, 70, 232, .35); transition: transform .15s; }
 /* Na conversa sobe, para não cobrir o "Enviar". */
 .fabChat { bottom: 104px; }
-.wrapChat { bottom: 176px; height: min(640px, calc(100dvh - 200px)); }
+.wrapChat { bottom: 176px; height: min(640px, calc(100dvh - 200px - var(--tb))); }
 .fab:hover { transform: translateY(-2px) scale(1.04); }
-.wrap { position: fixed; right: 22px; bottom: 96px; z-index: 60; width: min(400px, calc(100vw - 24px)); height: min(640px, calc(100dvh - 120px)); animation: rise .22s cubic-bezier(.2, .7, .2, 1) both; transform-origin: bottom right; }
+.wrap { position: fixed; right: 22px; bottom: 96px; z-index: 60; width: min(400px, calc(100vw - 24px)); height: min(640px, calc(100dvh - 120px - var(--tb))); animation: rise .22s cubic-bezier(.2, .7, .2, 1) both; transform-origin: bottom right; }
 .panel { height: 100%; background: #16161b; border: 1px solid #2c2c36; border-radius: 20px; box-shadow: 0 30px 80px rgba(0, 0, 0, .6); display: flex; flex-direction: column; overflow: hidden; }
 .head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid #26262e; }
 .grow { flex: 1; min-width: 0; }
 .mut { color: var(--text-muted); font-size: 12px; }
 .ic { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; background: none; border: 0; color: var(--text-muted); cursor: pointer; }
 .ic:hover { background: var(--surface-2); color: var(--text); }
-.body { 
-  flex: 1; 
-  overflow-y: auto; 
-  padding: 16px; 
-  display: flex; 
-  flex-direction: column; 
-  gap: 12px;
-  scrollbar-width: none; 
-  -ms-overflow-style: none;
-}
-.body::-webkit-scrollbar {
-  display: none;
-}
+.body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .hello { font-size: 17px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { border: 1px solid #34343e; background: #1f1f26; color: var(--text-chip); cursor: pointer; padding: 6px 12px; font: 400 13px var(--font); border-radius: 999px; }
@@ -63,7 +51,7 @@
 @media (max-width: 900px) {
   .fab { width: 48px; height: 48px; right: 14px; bottom: 82px; }
   .fabHideSm { display: none; }
-  .wrap { right: 12px; left: 12px; width: auto; bottom: 140px; height: calc(100dvh - 210px); }
+  .wrap { right: 12px; left: 12px; width: auto; bottom: 140px; height: calc(100dvh - 210px - var(--tb)); }
 }
 @keyframes rise { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
 @keyframes bubble { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

@@ -11,7 +11,7 @@ export default async function ChannelPage({ params, searchParams }: PageProps<"/
   const thread = sp.thread && Id.safeParse(sp.thread).success ? sp.thread : undefined;
   const limit = clampLimit(sp.limite);
   const [view, shell] = await Promise.all([getChatView(id, { kind: "channel", id: channelId }, { threadId: thread, limit }), getWorkspaceShell(id)]);
-  return <><PageCrumb label={`# ${view.title}`} /><ChatPane view={view} workspaceId={id} base={`/app/w/${id}/c/${channelId}`} limit={limit} months={shell.retention.messageMonths} /></>;
+  return <><PageCrumb label={`# ${view.title}`} /><ChatPane view={view} workspaceId={id} base={`/app/w/${id}/c/${channelId}`} limit={limit} months={shell.retention.messageMonths} fileHours={shell.retention.fileHours} /></>;
 }
 
 function clampLimit(v?: string) {

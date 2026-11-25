@@ -5,6 +5,7 @@ import type { BoardView, TaskDetail } from "@/types/domain";
 import { addComment, createLabel, deleteComment, deleteTask, moveTask, setAssignees, setLabels, updateTask } from "@/_data/projects.actions";
 import { Avatar } from "@/_components/chat/Avatar";
 import { Icon } from "@/_components/ui/Icon";
+import { TaskFiles } from "@/_components/files/TaskFiles";
 import { LabelChip } from "@/_components/projects/TaskBadges";
 import { Button } from "@/_components/ui/Button";
 import { LABEL_COLORS, PRIORITY, inputDay } from "@/lib/projects";
@@ -95,6 +96,10 @@ export function TaskPanel({ task, board, workspaceId, closeHref }: { task: TaskD
               if (v !== (task.description ?? "")) save({ description: v });
             }}
           />
+        </div>
+
+        <div className={s.section}>
+          <TaskFiles workspaceId={workspaceId} taskId={task.id} files={task.files} canManage={task.canDelete} />
         </div>
 
         <Comments task={task} workspaceId={workspaceId} />

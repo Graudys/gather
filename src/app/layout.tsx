@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { GeistSans } from "geist/font/sans";
 import { Suspense } from "react";
 import { NavProgress } from "@/_components/ui/NavProgress";
+import { PwaRegister } from "@/_components/pwa/PwaRegister";
 import "@/_styles/globals.css";
 
 export const metadata: Metadata = {
@@ -21,6 +22,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body>
         <Suspense fallback={null}><NavProgress /></Suspense>
         {children}
+        <PwaRegister />
       </body>
     </html>
   );

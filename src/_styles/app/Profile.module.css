@@ -31,3 +31,7 @@
   .actions > * { width: 100%; }
 }
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Perfil › Neste aparelho (PWA): texto à esquerda, botão à direita */
+.prefRow { align-items: center; cursor: default; }
+.prefRow > span { flex: 1; min-width: 0; }

@@ -1,5 +1,5 @@
 /* Casca do app, com as medidas do mockup (gather.css: .app .sb .tb .col .main). */
-.app { height: 100vh; height: 100dvh; display: grid; grid-template-columns: auto minmax(0, 1fr); overflow: hidden; }
+.app { height: calc(100vh - var(--tb)); height: calc(100dvh - var(--tb)); display: grid; grid-template-columns: auto minmax(0, 1fr); overflow: hidden; }
 .col { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg-main); }
 .main { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
 
@@ -98,13 +98,13 @@
 
 @media (max-width: 900px) {
   .app { grid-template-columns: minmax(0, 1fr); }
-  .sb { position: fixed; inset: 0 auto 0 0; z-index: 70; width: 280px; transform: translateX(-105%); transition: transform .22s ease; box-shadow: 20px 0 50px rgba(0, 0, 0, .5); }
+  .sb { position: fixed; inset: var(--tb) auto 0 0; z-index: 70; width: 280px; transform: translateX(-105%); transition: transform .22s ease; box-shadow: 20px 0 50px rgba(0, 0, 0, .5); }
   .sb.open { transform: none; }
   .collapsed { width: 280px; padding: 14px 12px; }
   .collapsed .label, .collapsed .wswText, .collapsed .tree, .collapsed .bd, .collapsed .secAdd, .collapsed .caret { display: revert; }
   .collapsed .wsLink { justify-content: flex-start; padding: 8px 10px; }
   .collapseBtn { display: none; }
-  .scrim { display: block; position: fixed; inset: 0; z-index: 65; background: rgba(0, 0, 0, .55); border: 0; }
+  .scrim { display: block; position: fixed; inset: var(--tb) 0 0 0; z-index: 65; background: rgba(0, 0, 0, .55); border: 0; }
   .menuBtn { display: inline-flex; }
   .srch { display: none; }
   .searchIcon { display: inline-flex; }

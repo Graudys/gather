@@ -1,7 +1,7 @@
 /* Janelas e painel lateral (gather.css: .ov .scrim .dlg .drw .dh .df .opt .rd). */
-.ov { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.ov { position: fixed; inset: var(--tb) 0 0 0; z-index: 90; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .scrim { position: absolute; inset: 0; background: rgba(6, 6, 9, .66); animation: fadeIn .16s ease-out both; }
-.dlg { position: relative; max-width: 100%; max-height: calc(100dvh - 32px); overflow-y: auto; background: var(--surface); border: 1px solid var(--line-3); border-radius: 18px; box-shadow: 0 30px 80px rgba(0, 0, 0, .6); padding: 24px; animation: pop .2s cubic-bezier(.2, .7, .2, 1) both; }
+.dlg { position: relative; max-width: 100%; max-height: calc(100dvh - 32px - var(--tb)); overflow-y: auto; background: var(--surface); border: 1px solid var(--line-3); border-radius: 18px; box-shadow: 0 30px 80px rgba(0, 0, 0, .6); padding: 24px; animation: pop .2s cubic-bezier(.2, .7, .2, 1) both; }
 .drw { position: absolute; right: 0; top: 0; bottom: 0; max-width: 100%; background: var(--surface-drawer, var(--surface)); border-left: 1px solid var(--line-2); padding: 24px; box-shadow: -24px 0 60px rgba(0, 0, 0, .5); overflow-y: auto; animation: slide .22s cubic-bezier(.2, .7, .2, 1) both; display: flex; flex-direction: column; }
 .dh { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
 .dh h2 { font-size: 20px; }

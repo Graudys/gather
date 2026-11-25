@@ -51,9 +51,13 @@ export type ChatMessage = {
   sender: { id: string; name: string } | null;
   replyCount: number;
   reactions: ReactionView[];
+  files: FileView[];
   canEdit: boolean;
   canDelete: boolean;
 };
+
+/** Arquivo anexado (mensagem ou tarefa). Abre por /api/arquivos/[id]. */
+export type FileView = { id: string; name: string; mime: string; size: number; expired: boolean };
 
 export type ChatView = {
   target: ChatTarget;
@@ -118,6 +122,7 @@ export type TaskDetail = TaskCard & {
   createdBy: Person | null;
   createdAt: string;
   canDelete: boolean;
+  files: (FileView & { mine: boolean })[];
   commentList: { id: string; author: Person | null; content: string; createdAt: string; mine: boolean }[];
   activity: { text: string; at: string }[];
 };

@@ -15,9 +15,23 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Raiz do projeto fixa: evita o Turbopack pegar um package-lock.json de fora da pasta.
   turbopack: { root: process.cwd() },
+  // O app lê a sessão (cookies) em quase toda página; sem Cache Components
+  // cada página autenticada é dinâmica e não precisa de <Suspense> em volta.
   cacheComponents: false,
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // Service worker: sempre a versão nova (sem cache do navegador), só scripts do próprio site.
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+          { key: "Service-Worker-Allowed", value: "/" },
+          { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self'; connect-src 'self'" },
+        ],
+      },
+    ];
   },
 };
 

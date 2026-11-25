@@ -181,6 +181,7 @@ model User {
   updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   sessions                Session[]
+  pushSubscriptions       PushSubscription[]
   accounts                Account[]
   workspacesCreated       Workspace[]
   workspaceMemberships    WorkspaceMember[]
@@ -225,6 +226,7 @@ model Session {
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pushSubscriptions PushSubscription[]
 
   @@index([userId])
   @@map("sessions")
@@ -898,6 +900,27 @@ model Notification {
 
   @@index([userId, readAt])
   @@map("notifications")
+}
+
+// Notificação no aparelho (PWA). Uma linha por navegador/app instalado.
+// Presa à sessão: sair da conta, sair de todos os aparelhos ou trocar a senha
+// apaga a sessão, e o banco apaga a inscrição junto (cascade).
+model PushSubscription {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  sessionId  String   @map("session_id") @db.Uuid
+  endpoint   String   @unique // só serviços de push conhecidos (src/lib/push.ts)
+  p256dh     String
+  auth       String
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastUsedAt DateTime @default(now()) @map("last_used_at") @db.Timestamptz(6)
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 // ───────────────────────── Suporte e denúncias ─────────────────────────

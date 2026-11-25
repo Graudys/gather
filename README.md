@@ -60,6 +60,20 @@ time. A senha aparece uma vez só, com uma mensagem pronta para mandar.
    `https://SEU-APP.vercel.app/api/livekit/webhook` (deixa a contagem de minutos
    certa mesmo se alguém fechar o navegador).
 
+## App instalável e notificações (PWA)
+
+1. `npx prisma migrate dev --name push` (cria a tabela `push_subscriptions`).
+2. `npx web-push generate-vapid-keys` e coloque no `.env.local` e na Vercel:
+   `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (só servidor) e `VAPID_SUBJECT`.
+3. Perfil › Neste aparelho: instalar o app e ligar as notificações.
+
+- O service worker (`public/sw.js`) só guarda a página `/offline`, ícones e estáticos do Next. Nada de páginas do app, API ou arquivos.
+- A notificação mostra só o tipo do aviso ("nova mensagem direta"), nunca o texto, e só abre links `/app`.
+- A inscrição fica presa à sessão: sair, sair de todos, trocar a senha ou suspender a conta desliga o aparelho na hora.
+- O servidor só envia para serviços de push conhecidos (Google, Apple, Mozilla, Microsoft).
+- No iPhone, notificação só com o app instalado na tela de início (iOS 16.4+).
+- Em `npm run dev` o PWA fica desligado; para testar, `NEXT_PUBLIC_PWA_DEV=1`.
+
 ## Pastas
 
 ```

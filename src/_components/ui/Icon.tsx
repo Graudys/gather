@@ -1,5 +1,7 @@
 // Ícones do mockup (traço 1.8, 24×24). Um lugar só para todo o app.
 const PATHS = {
+  download: <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />,
+  file: <><path d="M14 3H6v18h12V7z" /><path d="M14 3v4h4M9 13h6M9 17h4" /></>,
   flag: <path d="M5 21V4M5 4h11l-2 4 2 4H5" />,
   clip: <path d="M21 11l-8.5 8.5a5 5 0 01-7-7L14 4a3.5 3.5 0 015 5l-8.5 8.5a2 2 0 01-3-3L15 7" />,
   filter: <path d="M3 5h18l-7 8v6l-4 2v-8z" />,
@@ -49,7 +51,7 @@ const PATHS = {
 
 export type IconName = keyof typeof PATHS;
 
-export function Icon({ name, size = 18, className, label }: { name: IconName; size?: number; className?: string; label?: string }) {
+export function Icon({ name, size = 16, className, label }: { name: IconName; size?: number; className?: string; label?: string }) {
   return (
     <svg
       width={size}
