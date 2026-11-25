@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatBytes } from "@/lib/files";
 import type { Metadata } from "next";
 import { searchWorkspace } from "@/_data/search";
 import { startConversation } from "@/_data/chat.actions";
@@ -21,11 +22,11 @@ export default async function Busca({ params, searchParams }: PageProps<"/app/w/
   const { id } = await params;
   const { q = "" } = (await searchParams) as { q?: string };
   const r = await searchWorkspace(id, q);
-  const total = r ? r.messages.length + r.tasks.length + r.projects.length + r.events.length + r.people.length : 0;
+  const total = r ? r.messages.length + r.tasks.length + r.projects.length + r.events.length + r.people.length + r.files.length : 0;
   return (
     <div className={s.page}>
       <form className={s.top} role="search">
-        <input name="q" defaultValue={q} placeholder="Buscar mensagens, tarefas, projetos, eventos e pessoas" autoFocus maxLength={100}
+        <input name="q" defaultValue={q} placeholder="Buscar mensagens, arquivos, tarefas, projetos, eventos e pessoas" autoFocus maxLength={100}
           style={{ flex: 1, background: "var(--bg-input)", border: "1px solid var(--line-2)", borderRadius: 10, padding: "11px 14px", fontSize: 15 }} />
       </form>
       {!r && <p className={s.sub} style={{ marginTop: 0 }}>Digite pelo menos 2 letras.</p>}
@@ -40,6 +41,19 @@ export default async function Busca({ params, searchParams }: PageProps<"/app/w/
                 <span className={s.rowTitle}><b>{m.who}</b> · <Hl text={m.text} q={r.q} /></span>
                 <span className={s.rowMeta}>{m.where} · {dataHora(m.at)}</span>
               </Link>
+            ))}
+          </div>
+        </section>
+      )}
+      {r && r.files.length > 0 && (
+        <section>
+          <h2 className={s.groupTitle}>Arquivos · {r.files.length}</h2>
+          <div className={s.rows}>
+            {r.files.map((f) => (
+              <div key={f.id} className={s.row}>
+                <span className={s.rowTitle}><a href={f.open} target="_blank" rel="noopener"><Hl text={f.name} q={r.q} /></a> <span className={s.rowMeta}>· {formatBytes(f.size)}</span></span>
+                <span className={s.rowMeta}><Link href={f.href}>{f.where}</Link> · {dataHora(f.at)}</span>
+              </div>
             ))}
           </div>
         </section>

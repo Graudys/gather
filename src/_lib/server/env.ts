@@ -10,6 +10,8 @@ const serverSchema = z.object({
   ADMIN_EMAIL: z.email().optional(),
   CRON_SECRET: z.string().min(32).optional(),
   LGPD_ENABLED: z.enum(["true", "false"]).default("false"),
+  SUPABASE_URL: z.url().optional(),
+  SUPABASE_SECRET_KEY: z.string().min(20).optional(),
 });
 
 let cached: z.infer<typeof serverSchema> | undefined;
@@ -22,6 +24,8 @@ export function serverEnv() {
     ADMIN_EMAIL: process.env.ADMIN_EMAIL || undefined,
     CRON_SECRET: process.env.CRON_SECRET || undefined,
     LGPD_ENABLED: process.env.LGPD_ENABLED || undefined,
+    SUPABASE_URL: process.env.SUPABASE_URL || undefined,
+    SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY || undefined,
   });
   return cached;
 }

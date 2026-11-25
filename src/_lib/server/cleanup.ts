@@ -1,5 +1,7 @@
 import "server-only";
 import { db } from "@/_lib/db/prisma";
+import { removeObjects, storageConfigured } from "@/_lib/server/storage";
+import { cleanupFiles } from "@/_data/files.server";
 
 /**
  * Limpeza diária (Vercel Cron → /api/cron/diario).
@@ -9,6 +11,16 @@ import { db } from "@/_lib/db/prisma";
 export async function runDailyCleanup(now = new Date()) {
   const cfg = await db.platformConfig.findUnique({ where: { id: 1 } });
   const days = (n: number) => new Date(now.getTime() - n * 86_400_000);
+
+  // Arquivos das mensagens que vão ser apagadas saem do Storage antes (o banco apaga em cascade).
+  const old = await db.$queryRaw<{ storage_path: string }[]>`
+    select a.storage_path from message_attachments a
+    join messages m on m.id = a.message_id
+    join workspace_settings s on s.workspace_id = m.workspace_id
+    where a.storage_path is not null
+      and m.created_at < ${now}::timestamptz - make_interval(months => s.message_retention_months)`;
+  await removeObjects(old.map((o) => o.storage_path));
+  const files = storageConfigured() ? await cleanupFiles(now).catch((e) => (console.error("[cleanup] files", e), { expired: 0, pending: 0 })) : { expired: 0, pending: 0 };
 
   const messages = await db.$executeRaw`
     delete from messages m
@@ -27,6 +39,8 @@ export async function runDailyCleanup(now = new Date()) {
 
   return {
     messages,
+    filesExpired: files.expired,
+    pendingUploads: files.pending,
     botQuestions: botQuestions.count,
     accessLogs: accessLogs.count,
     errors: errors.count,

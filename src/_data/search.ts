@@ -18,7 +18,7 @@ export async function searchWorkspace(workspaceId: string, raw: string) {
   const has = { contains: q, mode: "insensitive" as const };
   const settings = await db.workspaceSettings.findUnique({ where: { workspaceId }, select: { messageRetentionMonths: true } });
 
-  const [messages, tasks, projects, events, people] = await Promise.all([
+  const [messages, tasks, projects, events, people, chatFiles, taskFiles] = await Promise.all([
     db.message.findMany({
       where: {
         workspaceId,
@@ -59,6 +59,29 @@ export async function searchWorkspace(workspaceId: string, raw: string) {
       take: 10,
       select: { user: { select: { id: true, name: true, email: true } } },
     }),
+    // Arquivos: pelo nome, com as mesmas regras de acesso das mensagens e tarefas.
+    db.messageAttachment.findMany({
+      where: {
+        fileName: has,
+        storagePath: { not: null },
+        message: {
+          workspaceId, deletedAt: null,
+          OR: [
+            { channel: { OR: [{ visibility: "PUBLIC" }, { members: { some: { userId: user.id } } }] } },
+            { conversation: { members: { some: { userId: user.id } } } },
+          ],
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 15,
+      select: { id: true, fileName: true, sizeBytes: true, createdAt: true, message: { select: { id: true, channelId: true, conversationId: true, parentMessageId: true, channel: { select: { name: true } } } } },
+    }),
+    db.taskAttachment.findMany({
+      where: { fileName: has, task: { project: { team: { workspaceId, ...teamVisibleTo(user.id) } } } },
+      orderBy: { createdAt: "desc" },
+      take: 15,
+      select: { id: true, fileName: true, sizeBytes: true, createdAt: true, task: { select: { id: true, title: true, projectId: true } } },
+    }),
   ]);
 
   return {
@@ -79,5 +102,19 @@ export async function searchWorkspace(workspaceId: string, raw: string) {
     projects: projects.map((p) => ({ id: p.id, name: p.name, status: p.status, href: `/app/w/${workspaceId}/p/${p.id}` })),
     events: events.map((e) => ({ id: e.id, title: e.title, at: e.startsAt.toISOString(), href: `/app/w/${workspaceId}/agenda?evento=${e.id}&dia=${e.startsAt.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })}` })),
     people: people.map((p) => ({ ...p.user, isMe: p.user.id === user.id })),
+    files: [
+      ...chatFiles.map((f) => ({
+        id: f.id, name: f.fileName, size: Number(f.sizeBytes), at: f.createdAt.toISOString(),
+        where: f.message.channel ? `#${f.message.channel.name}` : "Conversa direta",
+        href: `/app/w/${workspaceId}/${f.message.channelId ? `c/${f.message.channelId}` : `dm/${f.message.conversationId}`}?thread=${f.message.parentMessageId ?? f.message.id}`,
+        open: `/api/arquivos/${f.id}`,
+      })),
+      ...taskFiles.map((f) => ({
+        id: f.id, name: f.fileName, size: Number(f.sizeBytes), at: f.createdAt.toISOString(),
+        where: `Tarefa: ${f.task.title}`,
+        href: `/app/w/${workspaceId}/p/${f.task.projectId}?tarefa=${f.task.id}`,
+        open: `/api/arquivos/${f.id}?k=t`,
+      })),
+    ].sort((a, b) => b.at.localeCompare(a.at)),
   };
 }

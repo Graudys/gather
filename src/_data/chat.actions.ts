@@ -9,6 +9,8 @@ import { id as Id, textoMensagem } from "@/lib/validation";
 import { hit } from "@/_lib/server/rate-limit";
 import { REACTIONS } from "@/lib/chat";
 import { notify, snippet } from "@/_lib/server/notify";
+import { landFiles } from "@/_data/files.server";
+import { removeObjects } from "@/_lib/server/storage";
 
 /**
  * Ações do chat. Cada uma confere o acesso com chat.access.ts antes de escrever.
@@ -22,17 +24,23 @@ const Send = z.object({
   channelId: z.union([Id, z.literal("")]).optional(),
   conversationId: z.union([Id, z.literal("")]).optional(),
   parentId: z.union([Id, z.literal("")]).optional(),
-  content: textoMensagem,
+  content: z.union([textoMensagem, z.literal("")]).default(""),
 });
 
 export async function sendMessage(form: FormData) {
-  const p = Send.safeParse(Object.fromEntries(form));
+  const p = Send.safeParse({ ...Object.fromEntries(form), content: String(form.get("content") ?? "").trim() });
   if (!p.success) return;
   const { workspaceId, channelId, conversationId, parentId, content } = p.data;
   if (Boolean(channelId) === Boolean(conversationId)) return; // exatamente um dos dois
+  const tickets = form.getAll("files").map(String).filter(Boolean);
+  if (!content && !tickets.length) return; // mensagem vazia sem arquivo
 
   const ctx = channelId ? await requireChannel(workspaceId, channelId) : await requireConversation(workspaceId, conversationId!);
   if (!(await hit("chatMessage", ctx.user.id))) return;
+  const files = tickets.length
+    ? await landFiles(tickets, { w: workspaceId, u: ctx.user.id, d: channelId ? `c:${channelId}` : `dm:${conversationId}` }, "m")
+    : [];
+  if (!content && !files.length) return;
 
   if (parentId) {
     // A resposta precisa ficar no mesmo lugar da mensagem principal, e só um nível de thread.
@@ -51,8 +59,10 @@ export async function sendMessage(form: FormData) {
       parentMessageId: parentId || null,
       senderId: ctx.user.id,
       content,
+      attachments: { create: files.map((f) => ({ storagePath: f.path, fileName: f.name, mimeType: f.mime, sizeBytes: BigInt(f.size), createdById: ctx.user.id })) },
     },
   });
+  const preview = content || (files.length === 1 ? `Arquivo: ${files[0]!.name}` : `${files.length} arquivos`);
 
   // Avisos: conversa direta → as outras pessoas; resposta em thread → quem escreveu a principal e quem já respondeu.
   const base = channelId ? `/app/w/${workspaceId}/c/${channelId}` : `/app/w/${workspaceId}/dm/${conversationId}`;
@@ -64,13 +74,13 @@ export async function sendMessage(form: FormData) {
     });
     await notify(involved.map((m) => m.senderId!).filter((u) => u !== ctx.user.id), {
       workspaceId, type: "thread", key: `thread:${parentId}`,
-      title: `${ctx.user.name} respondeu numa thread`, body: snippet(content), href: `${base}?thread=${parentId}`,
+      title: `${ctx.user.name} respondeu numa thread`, body: snippet(preview), href: `${base}?thread=${parentId}`,
     });
   } else if (conversationId) {
     const others = await db.conversationMember.findMany({ where: { conversationId, userId: { not: ctx.user.id } }, select: { userId: true } });
     await notify(others.map((o) => o.userId), {
       workspaceId, type: "dm", key: `dm:${conversationId}`,
-      title: `Mensagem de ${ctx.user.name}`, body: snippet(content), href: base,
+      title: `Mensagem de ${ctx.user.name}`, body: snippet(preview), href: base,
     });
   }
   refresh(workspaceId);
@@ -93,10 +103,13 @@ export async function deleteMessage(form: FormData) {
   // Quem escreveu, ou dono/admin do workspace (moderação).
   if (ctx.message.deletedAt || (ctx.message.senderId !== ctx.user.id && !ctx.wsAdmin)) return;
   // Apaga o texto de verdade: a linha fica só para manter a thread de pé.
+  const files = await db.messageAttachment.findMany({ where: { messageId: ctx.message.id }, select: { storagePath: true } });
   await db.$transaction([
     db.messageReaction.deleteMany({ where: { messageId: ctx.message.id } }),
+    db.messageAttachment.deleteMany({ where: { messageId: ctx.message.id } }),
     db.message.update({ where: { id: ctx.message.id }, data: { content: "", deletedAt: new Date() } }),
   ]);
+  await removeObjects(files.map((f) => f.storagePath));
   refresh(p.data.workspaceId);
 }
 
@@ -208,7 +221,9 @@ export async function deleteChannel(form: FormData) {
   if (!p.success) return;
   const ctx = await requireChannel(p.data.workspaceId, p.data.channelId);
   if (!ctx.canManage || p.data.confirm !== ctx.channel.name) return;
+  const files = await db.messageAttachment.findMany({ where: { message: { channelId: ctx.channel.id } }, select: { storagePath: true } });
   await db.channel.delete({ where: { id: ctx.channel.id } }); // mensagens vão junto (cascade)
+  await removeObjects(files.map((f) => f.storagePath));
   refresh(p.data.workspaceId);
   redirect(`/app/w/${p.data.workspaceId}`);
 }

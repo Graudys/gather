@@ -19,6 +19,7 @@ export function AdminNav() {
   const services = [
     ["Banco (Supabase)", Boolean(process.env.DATABASE_URL)],
     ["Reuniões (LiveKit)", Boolean(livekitConfig())],
+    ["Arquivos (Storage)", Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SECRET_KEY)],
     ["Rotina diária", Boolean(process.env.CRON_SECRET)],
   ] as const;
   return (

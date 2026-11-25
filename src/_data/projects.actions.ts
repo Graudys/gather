@@ -7,6 +7,8 @@ import { requireMember } from "@/_lib/auth/dal";
 import { assignablePeople, requireProject, requireTask, teamVisibleTo } from "@/_data/projects.access";
 import { makeSlug } from "@/_data/workspaces.server";
 import { positionBetween } from "@/lib/position";
+import { filesOf } from "@/_data/files.server";
+import { removeObjects } from "@/_lib/server/storage";
 import { LABEL_COLORS } from "@/lib/projects";
 import { id as Id } from "@/lib/validation";
 import { hit } from "@/_lib/server/rate-limit";
@@ -252,7 +254,12 @@ export async function deleteProject(form: FormData) {
   if (!p.success) return;
   const ctx = await requireProject(p.data.workspaceId, p.data.projectId);
   if (!ctx.canManage || p.data.confirm.trim() !== ctx.project.name) return;
+  const files = await filesOf({ projectId: ctx.project.id });
+  // O canal do projeto vai junto: os arquivos dele também.
+  const chat = await db.messageAttachment.findMany({ where: { message: { channel: { projectId: ctx.project.id } } }, select: { storagePath: true } });
+  files.push(...chat.map((c) => c.storagePath).filter((x): x is string => Boolean(x)));
   await db.project.delete({ where: { id: ctx.project.id } }); // tarefas, colunas e canal vão junto
+  await removeObjects(files);
   refresh(p.data.workspaceId);
   redirect(`/app/w/${p.data.workspaceId}/projetos`);
 }
@@ -446,7 +453,9 @@ export async function deleteTask(form: FormData) {
   if (!p.success) return;
   const ctx = await requireTask(p.data.workspaceId, p.data.taskId);
   if (!ctx.canDeleteTask) return;
+  const files = await filesOf({ taskId: ctx.task.id });
   await db.task.delete({ where: { id: ctx.task.id } });
+  await removeObjects(files);
   await db.activityEvent.deleteMany({ where: { entityType: "task", entityId: ctx.task.id } });
   refresh(p.data.workspaceId);
   redirect(`/app/w/${p.data.workspaceId}/p/${ctx.project.id}`);

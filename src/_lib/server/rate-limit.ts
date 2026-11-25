@@ -10,6 +10,7 @@ export const LIMITS = {
   clientError: { max: 30, windowSec: 60 },
   meetingToken: { max: 20, windowSec: 60 },
   chatMessage: { max: 60, windowSec: 60 },
+  uploads: { max: 60, windowSec: 10 * 60 },
   tasks: { max: 120, windowSec: 60 },
   orbi: { max: 30, windowSec: 60 },
   workspaceMembers: { max: 60, windowSec: 60 * 60 },

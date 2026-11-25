@@ -93,6 +93,7 @@ const messageSelect = {
     senderId: true,
     sender: { select: { id: true, name: true } },
     reactions: { select: { emoji: true, userId: true } },
+    attachments: { orderBy: { createdAt: "asc" }, select: { id: true, fileName: true, mimeType: true, sizeBytes: true, storagePath: true } },
     _count: { select: { replies: { where: { deletedAt: null } } } },
 } as const;
 
@@ -105,6 +106,7 @@ type Row = {
   senderId: string | null;
   sender: { id: string; name: string } | null;
   reactions: { emoji: string; userId: string }[];
+  attachments: { id: string; fileName: string; mimeType: string; sizeBytes: bigint; storagePath: string | null }[];
   _count: { replies: number };
 };
 
@@ -125,6 +127,7 @@ function toView(m: Row, me: string, wsAdmin: boolean): ChatMessage {
     sender: m.sender,
     replyCount: m._count.replies,
     reactions: deleted ? [] : [...byEmoji].map(([emoji, v]) => ({ emoji, ...v })),
+    files: deleted ? [] : m.attachments.map((a) => ({ id: a.id, name: a.fileName, mime: a.mimeType, size: Number(a.sizeBytes), expired: !a.storagePath })),
     canEdit: !deleted && m.senderId === me,
     canDelete: !deleted && (m.senderId === me || wsAdmin),
   };

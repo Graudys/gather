@@ -83,3 +83,5 @@ a.chip:hover { border-color: var(--line-3); color: var(--text); }
 @media (max-width: 900px) {
   .hideSm, .desc { display: none; }
 }
+.attachBtn { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 9px; background: none; border: 0; color: var(--text-muted); cursor: pointer; flex: none; align-self: flex-end; }
+.attachBtn:hover { background: var(--surface-2); color: var(--text); }
