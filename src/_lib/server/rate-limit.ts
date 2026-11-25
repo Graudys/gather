@@ -5,9 +5,14 @@ import { db } from "@/_lib/db/prisma";
 export const LIMITS = {
   login: { max: 8, windowSec: 15 * 60 },
   passwordChange: { max: 6, windowSec: 15 * 60 },
+  profile: { max: 20, windowSec: 15 * 60 },
   adminPeople: { max: 30, windowSec: 60 * 60 },
   clientError: { max: 30, windowSec: 60 },
   meetingToken: { max: 20, windowSec: 60 },
+  chatMessage: { max: 60, windowSec: 60 },
+  tasks: { max: 120, windowSec: 60 },
+  orbi: { max: 30, windowSec: 60 },
+  workspaceMembers: { max: 60, windowSec: 60 * 60 },
 } as const;
 
 /**

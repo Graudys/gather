@@ -47,8 +47,9 @@ export const auth = betterAuth({
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 dias
     updateAge: 60 * 60 * 24, // renova uma vez por dia de uso
-    // Sem cache em cookie: desativar acesso ou encerrar sessões vale na hora.
-    cookieCache: { enabled: false },
+    // Cache curto em cookie assinado: evita ler a sessão no banco a cada página.
+    // Desativar acesso ou encerrar sessões vale em até 1 minuto.
+    cookieCache: { enabled: true, maxAge: 60 },
   },
 
   advanced: {

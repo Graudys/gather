@@ -1,6 +1,16 @@
-.state { flex: 1; max-width: 440px; margin: 0 auto; padding: 32px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; }
-.stateTitle { font-size: 24px; font-weight: 600; letter-spacing: -.03em; }
-.stateText { color: var(--text-muted); }
+.state { flex: 1; min-height: 100%; min-height: 100dvh; margin: 0 auto; padding: 32px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; background: #0c0c10; width: 100%; }
+.stateInShell { min-height: 0; flex: 1; background: none; }
+.stateLogo { animation: spin 1.2s cubic-bezier(.2, .7, .2, 1) both; }
+.stateCode { font-size: 64px; font-weight: 600; letter-spacing: -.05em; color: #3a3a46; line-height: 1; animation: rise .4s ease-out both; }
+.stateTitle { font-size: 26px; font-weight: 600; letter-spacing: -.03em; }
+.stateText { color: var(--text-muted); margin: 0; max-width: 44ch; line-height: 1.6; }
+.stateActions { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
+.stateBtn, .stateBtn2 { display: inline-flex; align-items: center; gap: 6px; border-radius: 10px; padding: 9px 16px; font: 600 13px var(--font); text-decoration: none; cursor: pointer; border: 0; }
+.stateBtn { background: linear-gradient(135deg, var(--accent-1), var(--accent-2)); color: #fff; }
+.stateBtn2 { background: var(--surface); color: var(--text-strong); border: 1px solid var(--line-3); font-weight: 500; }
+.stateBtn:hover, .stateBtn2:hover { filter: brightness(1.12); }
+@keyframes spin { from { transform: rotate(-120deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .legal { width: 100%; max-width: 720px; margin: 0 auto; padding: 48px 24px; display: flex; flex-direction: column; gap: 16px; }
 .legalTitle { font-size: 30px; font-weight: 600; letter-spacing: -.04em; }
 .legal h2 { font-size: 17px; font-weight: 600; margin-top: 8px; }

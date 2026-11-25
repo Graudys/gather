@@ -1,7 +1,7 @@
 import "server-only";
 import { db } from "@/_lib/db/prisma";
 import { requireAdmin } from "@/_lib/auth/dal";
-import type { AccessRow, AdminKpis, ErrorRow } from "@/types/domain";
+import type { AdminKpis, ErrorRow } from "@/types/domain";
 
 /** Só números agregados. Nenhuma mensagem ou arquivo sai daqui. */
 export async function getAdminKpis(): Promise<AdminKpis> {
@@ -24,21 +24,4 @@ export async function listOpenErrors(): Promise<ErrorRow[]> {
     select: { id: true, status: true, source: true, message: true, location: true, count: true, usersAffected: true, lastSeenAt: true, release: true },
   });
   return rows.map((e) => ({ ...e, lastSeenAt: e.lastSeenAt.toISOString() }));
-}
-
-/** Últimos acessos (Marco Civil). Mostra nome e e-mail só para o admin. */
-export async function listRecentAccess(): Promise<AccessRow[]> {
-  await requireAdmin();
-  const rows = await db.accessLog.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
-  const ids = [...new Set(rows.map((r) => r.userId).filter(Boolean) as string[])];
-  const users = await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } });
-  const names = new Map(users.map((u) => [u.id, u.name]));
-  return rows.map((r) => ({
-    id: String(r.id),
-    at: r.createdAt.toISOString(),
-    person: r.userId ? (names.get(r.userId) ?? "Conta removida") : "—",
-    event: r.event,
-    ip: r.ip,
-    device: r.userAgent ?? "",
-  }));
 }

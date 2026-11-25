@@ -1,3 +1,6 @@
 .alert { border-radius: var(--radius); border: 1px solid; padding: 9px 12px; font-size: 13px; }
 .error { border-color: #5a2a30; background: #22151a; color: var(--danger-text); }
 .ok { border-color: #1f4a32; background: #12241a; color: var(--ok); }
+/* "Aviso entrando": sobe 10 px e aparece em 0,3 s. */
+.alert { animation: alertIn .3s cubic-bezier(.2, .7, .2, 1) both; }
+@keyframes alertIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }

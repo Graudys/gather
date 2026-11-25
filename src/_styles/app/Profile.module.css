@@ -1,0 +1,33 @@
+/* Perfil (mockup "Perfil"). */
+.page { padding: 24px 28px 40px; max-width: 1040px; width: 100%; }
+.title { font-size: 28px; margin-bottom: 16px; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+.tabs a { padding: 10px 14px; color: var(--text-muted); text-decoration: none; font-size: 14px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs a:hover { color: var(--text); }
+.tabOn { color: var(--text) !important; border-color: var(--accent) !important; font-weight: 500; }
+.layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 18px; align-items: start; }
+.col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 24px 18px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.card2 { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 14px; animation: rise .3s ease-out both; }
+.card2 h2 { font-size: 16px; }
+.avatar { width: 84px; height: 84px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 28px; font-weight: 600; margin-bottom: 8px; }
+.name { font-size: 16px; }
+.muted { color: var(--text-muted); font-size: 13px; margin: -6px 0 0; }
+.card .muted { margin: 0; }
+.faint { color: var(--text-faint); font-size: 12px; margin: 0; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.textarea { resize: vertical; min-height: 72px; font-family: inherit; }
+.pref { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--line); cursor: pointer; }
+.pref input { width: 16px; height: 16px; margin-top: 2px; accent-color: var(--accent); }
+.pref b { display: block; font-size: 14px; font-weight: 500; }
+.pref small { display: block; color: var(--text-muted); font-size: 13px; }
+.actions { display: flex; justify-content: flex-end; }
+.narrow { max-width: 520px; display: flex; flex-direction: column; gap: 14px; }
+.form { display: flex; flex-direction: column; gap: 12px; }
+@media (max-width: 900px) {
+  .page { padding: 18px 16px 28px; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .two { grid-template-columns: minmax(0, 1fr); }
+  .actions > * { width: 100%; }
+}
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

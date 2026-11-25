@@ -43,23 +43,43 @@ export async function requireUser(next?: string) {
   return user;
 }
 
-/** Entrou E já fez o primeiro acesso (senha nova, 18+, termos). */
+/** Modo manutenção (Admin › Configurações): uma leitura por requisição. */
+// Guardado 20 s na memória do servidor: não custa uma consulta por página.
+let maint: { on: boolean; at: number } | null = null;
+const maintenanceOn = cache(async () => {
+  if (maint && Date.now() - maint.at < 20_000) return maint.on;
+  const cfg = await db.platformConfig.findUnique({ where: { id: 1 }, select: { maintenanceMode: true } });
+  maint = { on: Boolean(cfg?.maintenanceMode), at: Date.now() };
+  return maint.on;
+});
+/** Chamado ao salvar as configurações, para valer na hora. */
+export async function forgetMaintenanceCache() {
+  maint = null;
+}
+
+/** Entrou E já fez o primeiro acesso (senha nova, 18+, termos). Em manutenção, só o admin passa. */
 export async function requireReadyUser(next?: string) {
   const user = await requireUser(next);
   if (!user.ready) redirect("/primeiro-acesso");
+  if (user.role !== "admin" && (await maintenanceOn())) redirect("/manutencao");
   return user;
 }
+
+/** Uma consulta de membro por workspace por requisição (layout e página reaproveitam). */
+const memberRow = cache(async (workspaceId: string, userId: string) =>
+  db.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId, userId } },
+    select: { role: true, workspace: { select: { id: true, name: true, kind: true, suspendedAt: true } } },
+  }),
+);
 
 /** Garante que a pessoa é membro do workspace. Devolve o papel dela. */
 export async function requireMember(workspaceId: string, allowed?: WorkspaceRole[]) {
   const user = await requireReadyUser();
-  const m = await db.workspaceMember.findUnique({
-    where: { workspaceId_userId: { workspaceId, userId: user.id } },
-    select: { role: true, workspace: { select: { id: true, name: true, kind: true, suspendedAt: true } } },
-  });
+  const m = await memberRow(workspaceId, user.id);
   // Não dizer se o workspace existe para quem não é membro.
   if (!m) notFound();
-  if (m.workspace.suspendedAt) redirect("/app?aviso=workspace-suspenso");
+  if (m.workspace.suspendedAt) redirect("/app/novo-workspace?aviso=workspace-suspenso");
   if (allowed && !allowed.includes(m.role)) notFound();
   return { user, role: m.role, workspace: m.workspace };
 }

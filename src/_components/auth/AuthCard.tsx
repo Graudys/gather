@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Logo } from "@/_components/ui/Logo";
+import { LogoAnimated } from "@/_components/ui/Brand";
 import { t } from "@/_i18n";
 import s from "@/_styles/auth/Auth.module.css";
 
@@ -8,7 +9,7 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
   return (
     <div className={s.split}>
       <aside className={s.side} aria-hidden="true">
-        <Logo />
+        <LogoAnimated size={34} />
         <div>
           <p className={s.slogan}>{t.auth.lado.lema}</p>
           <p className={s.sideText}>{t.auth.lado.texto}</p>

@@ -45,6 +45,17 @@ export async function reportError(input: {
     const hour = new Date();
     hour.setMinutes(0, 0, 0);
 
+    // Dois erros iguais ao mesmo tempo: o segundo "create" bate no unique e tenta de novo como update.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        await save();
+        break;
+      } catch (e) {
+        if (attempt === 1 || (e as { code?: string }).code !== "P2002") throw e;
+      }
+    }
+
+    async function save() {
     await db.$transaction(async (tx) => {
       const prev = await tx.errorEvent.findUnique({ where: { fingerprint: fp }, select: { id: true, status: true, sampleUserIds: true, sampleWorkspaceIds: true, browsers: true } });
       const users = new Set(prev?.sampleUserIds ?? []);
@@ -79,6 +90,7 @@ export async function reportError(input: {
         update: { count: { increment: 1 } },
       });
     });
+    }
   } catch (e) {
     console.error("[observability] falha ao registrar erro", e);
   }

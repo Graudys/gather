@@ -17,6 +17,7 @@ generator client {
   provider     = "prisma-client"
   output       = "../src/generated/prisma"
   moduleFormat = "esm"
+  previewFeatures = ["relationJoins"]
 }
 
 // A URL vem do prisma.config.ts (DIRECT_URL para migrations).
@@ -164,6 +165,8 @@ model User {
   username           String?   @unique
   bio                String?
   timezone           String?
+  // Avisos que a pessoa desligou: { "mencoes": false, "tarefas": false, "reunioes": false }
+  notifyPrefs        Json      @default("{}") @map("notify_prefs")
   // Plugin admin do Better Auth
   role               String    @default("user") // "user" ou "admin"
   banned             Boolean   @default(false) // "Desativar acesso"

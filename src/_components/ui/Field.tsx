@@ -14,10 +14,11 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={[s.input, props.className].filter(Boolean).join(" ")} />;
 }
 
-export function Check({ name, children }: { name: string; children: ReactNode }) {
+/** Caixa de marcar. Obrigatória por padrão (18+, termos); `optional` para as demais. */
+export function Check({ name, children, optional, defaultChecked }: { name: string; children: ReactNode; optional?: boolean; defaultChecked?: boolean }) {
   return (
     <label className={s.check}>
-      <input type="checkbox" name={name} required className={s.box} />
+      <input type="checkbox" name={name} required={!optional} defaultChecked={defaultChecked} className={s.box} />
       <span>{children}</span>
     </label>
   );

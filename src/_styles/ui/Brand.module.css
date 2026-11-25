@@ -1,0 +1,17 @@
+.brand { display: inline-flex; align-items: center; gap: .3em; font-weight: 600; letter-spacing: -.05em; color: #eef0f7; }
+.arc { stroke-dasharray: 152; animation: draw 1s cubic-bezier(.65, 0, .25, 1) both; }
+.dot { transform-box: view-box; transform-origin: 50px 50px; animation: orbit 1s cubic-bezier(.65, 0, .25, 1) both; }
+.word { animation: wordIn .55s .7s cubic-bezier(.2, .7, .2, 1) both; }
+@keyframes draw { from { stroke-dashoffset: 152; } to { stroke-dashoffset: 0; } }
+@keyframes orbit { from { transform: rotate(-325deg); } to { transform: rotate(0); } }
+@keyframes wordIn { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+
+.spinnerWrap { display: inline-flex; align-items: center; gap: 8px; color: var(--brand-2); font-size: 13px; }
+.spinnerWrap > span { color: var(--text-muted); }
+.spinner { animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+@media (prefers-reduced-motion: reduce) {
+  .arc, .dot, .word, .spinner { animation: none; }
+}

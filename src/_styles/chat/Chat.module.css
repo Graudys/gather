@@ -1,0 +1,85 @@
+.chat { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+.head { display: flex; align-items: center; gap: 12px; padding: 14px 24px; border-bottom: 1px solid var(--line); min-height: 60px; }
+.title { font-size: 17px; font-weight: 600; letter-spacing: -.02em; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.titleHash { color: var(--text-faint); }
+.desc { font-size: 13px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-chip); background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 7px; padding: 3px 9px; white-space: nowrap; text-decoration: none; }
+a.chip:hover { border-color: var(--line-3); color: var(--text); }
+.headRight { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+/* column-reverse mantém a conversa presa embaixo sem JavaScript */
+.scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column-reverse; }
+.list { list-style: none; margin: 0; padding: 16px 24px 8px; display: flex; flex-direction: column; }
+.notice { align-self: center; font-size: 12px; color: var(--text-faint); padding: 8px 12px; text-align: center; max-width: 440px; }
+.more { align-self: center; font-size: 12px; color: var(--text-muted); text-decoration: underline; padding: 6px; }
+.day { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-faint); margin: 14px 0 6px; }
+.day::before, .day::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.empty { margin: auto; text-align: center; color: var(--text-muted); padding: 48px 24px; }
+.emptyTitle { color: var(--text); font-weight: 600; font-size: 16px; margin-bottom: 4px; }
+
+.msg { position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr); column-gap: 12px; padding: 6px 8px; margin: 0 -8px; border-radius: 10px; }
+.msg:hover { background: rgba(255, 255, 255, .025); }
+.msg:hover .tools, .tools:focus-within { opacity: 1; pointer-events: auto; }
+.compact { padding-top: 1px; padding-bottom: 1px; }
+.avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #fff; }
+.avatarSm { width: 28px; height: 28px; font-size: 11px; }
+.time { font-size: 11px; color: var(--text-faint); }
+.compactTime { font-size: 10px; color: transparent; text-align: right; padding-top: 3px; }
+.msg:hover .compactTime { color: var(--text-faint); }
+.meta { display: flex; align-items: baseline; gap: 8px; }
+.name { font-weight: 600; font-size: 14px; }
+.text { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-strong); font-size: 14px; line-height: 1.5; }
+.deleted { font-style: italic; color: var(--text-faint); font-size: 13px; }
+.edited { font-size: 11px; color: var(--text-faint); margin-left: 4px; }
+
+.reactions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.reaction { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 8px; padding: 2px 8px; cursor: pointer; color: var(--text-chip); }
+.reaction:hover { border-color: var(--line-3); }
+.reactionMine { border-color: var(--accent); background: rgba(124, 92, 240, .15); color: var(--text); }
+.replies { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--brand-2); text-decoration: none; }
+.replies:hover { text-decoration: underline; }
+
+.tools { position: absolute; top: -14px; right: 12px; display: flex; gap: 2px; padding: 3px; background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 9px; box-shadow: 0 6px 18px rgba(0, 0, 0, .35); opacity: 0; pointer-events: none; transition: opacity .1s; z-index: 5; }
+.tool { background: none; border: 0; padding: 4px 7px; border-radius: 6px; cursor: pointer; color: var(--text-muted); font-size: 13px; text-decoration: none; line-height: 1.2; }
+.tool:hover { background: var(--surface-3); color: var(--text); }
+.toolDanger:hover { color: var(--danger-text); }
+.toolForm { display: contents; }
+
+.editBox { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.editRow { display: flex; gap: 8px; font-size: 12px; color: var(--text-faint); align-items: center; }
+.confirm { margin-top: 6px; display: flex; gap: 10px; align-items: center; font-size: 13px; color: var(--danger-text); }
+
+.composer { padding: 12px 24px 20px; }
+.box { display: flex; align-items: flex-end; gap: 10px; background: var(--bg-input); border: 1px solid var(--line-2); border-radius: 12px; padding: 8px 8px 8px 14px; }
+.box:focus-within { border-color: var(--focus); }
+.textarea { flex: 1; resize: none; background: none; border: 0; outline: none; font-size: 14px; line-height: 1.5; padding: 6px 0; max-height: 200px; min-height: 24px; }
+.textarea::placeholder { color: var(--text-faint); }
+.hint { font-size: 11px; color: var(--text-faint); margin-top: 6px; padding-left: 2px; }
+
+.thread { width: 380px; flex: none; border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; background: var(--bg-main); }
+.threadHead { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--line); min-height: 60px; }
+.threadTitle { font-weight: 600; }
+.threadSub { font-size: 12px; color: var(--text-faint); }
+.close { color: var(--text-muted); text-decoration: none; font-size: 18px; padding: 2px 8px; border-radius: 6px; }
+.close:hover { background: var(--surface); color: var(--text); }
+.threadCount { font-size: 12px; color: var(--text-faint); padding: 8px 0 4px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.threadList { padding: 12px 18px; }
+.threadComposer { padding: 10px 18px 18px; }
+
+@media (max-width: 1100px) {
+  .thread { position: fixed; inset: 56px 0 0 auto; width: min(420px, 100vw); z-index: 30; box-shadow: -20px 0 40px rgba(0, 0, 0, .5); }
+}
+.listThread { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+
+/* Microanimações (0,2 a 0,3 s). Param com "reduzir movimento" (globals.css). */
+.msg { animation: msgIn .25s cubic-bezier(.2, .7, .2, 1) both; }
+.reaction { animation: pop .2s ease-out both; }
+.thread { animation: slideIn .22s cubic-bezier(.2, .7, .2, 1) both; }
+.tools { transition: opacity .12s, transform .12s; transform: translateY(2px); }
+.msg:hover .tools, .tools:focus-within { transform: none; }
+@keyframes msgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes pop { 0% { transform: scale(.85); } 60% { transform: scale(1.08); } 100% { transform: scale(1); } }
+@keyframes slideIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+@media (max-width: 900px) {
+  .hideSm, .desc { display: none; }
+}

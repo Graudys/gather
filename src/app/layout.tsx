@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { GeistSans } from "geist/font/sans";
+import { Suspense } from "react";
+import { NavProgress } from "@/_components/ui/NavProgress";
 import "@/_styles/globals.css";
 
 export const metadata: Metadata = {
@@ -16,7 +18,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   await headers();
   return (
     <html lang="pt-BR" className={GeistSans.variable}>
-      <body>{children}</body>
+      <body>
+        <Suspense fallback={null}><NavProgress /></Suspense>
+        {children}
+      </body>
     </html>
   );
 }

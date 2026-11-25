@@ -17,3 +17,9 @@
 .link { background: none; color: var(--text-muted); padding: 0; font-weight: 400; }
 .link:hover { color: var(--text); filter: none; }
 .block { width: 100%; }
+.button:disabled { cursor: default; filter: saturate(.7) brightness(.9); }
+.button:active:not(:disabled) { transform: translateY(1px); }
+.busy { opacity: .85; }
+.spin { width: 13px; height: 13px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin .7s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }

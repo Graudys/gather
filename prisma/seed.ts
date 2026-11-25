@@ -10,6 +10,7 @@ import { randomUUID } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { hashPassword } from "better-auth/crypto";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { STARTER_ARTICLES, STARTER_CATEGORIES } from "../src/_lib/help/starter";
 
 config({ path: [".env.local", ".env"], quiet: true });
 
@@ -28,6 +29,14 @@ function tempPassword() {
 async function main() {
   const cfg = await db.platformConfig.upsert({ where: { id: 1 }, create: { id: 1 }, update: {} });
   console.log("✔ Configuração pronta");
+
+  // Central de ajuda: assuntos e artigos iniciais (só os que faltam; não sobrescreve).
+  const cats = new Map<string, string>();
+  for (const c of STARTER_CATEGORIES) cats.set(c.slug, (await db.helpCategory.upsert({ where: { slug: c.slug }, create: { ...c }, update: {}, select: { id: true } })).id);
+  for (const { category, ...a } of STARTER_ARTICLES) {
+    await db.helpArticle.upsert({ where: { slug: a.slug }, create: { ...a, categoryId: cats.get(category)!, status: "PUBLISHED" }, update: {} });
+  }
+  console.log(`✔ Central de ajuda: ${STARTER_ARTICLES.length} artigos iniciais`);
 
   const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
   if (!email) {

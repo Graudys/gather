@@ -1,14 +1,16 @@
 "use client";
 import { useState } from "react";
 import { Button } from "@/_components/ui/Button";
+import { Icon } from "@/_components/ui/Icon";
+import { ClientModal } from "@/_components/ui/ClientModal";
 import { t } from "@/_i18n";
-import s from "@/_styles/admin/People.module.css";
+import m from "@/_styles/ui/Modal.module.css";
 
 const P = t.admin.pessoas;
 
-/** Mostra a senha temporária uma única vez (só fica na memória desta tela). */
-export function TempPasswordCard({ name, email, password, days, appUrl, onDone }: {
-  name: string; email: string; password: string; days: number; appUrl: string; onDone: () => void;
+/** Senha temporária numa janela (mockup "Ov_AdminSenhaTemp"); só existe na memória desta tela. */
+export function TempPasswordCard({ name, email, password, days, appUrl, created, onDone }: {
+  name: string; email: string; password: string; days: number; appUrl: string; created?: boolean; onDone: () => void;
 }) {
   const [copied, setCopied] = useState<"senha" | "msg" | null>(null);
   const message = P.mensagem(name, appUrl, email, password, days);
@@ -21,21 +23,26 @@ export function TempPasswordCard({ name, email, password, days, appUrl, onDone }
     }
   };
   return (
-    <div className={s.panel} role="dialog" aria-label={P.senhaCampo}>
-      <b className={s.panelTitle}>{name}</b>
-      <p className={s.warn}>{P.senhaTitulo}</p>
-      <p className={s.mail}>{email}</p>
-      <div className={s.secret}>
-        <code className={s.code}>{password}</code>
-        <Button type="button" variant="ghost" onClick={() => copy(password, "senha")}>{copied === "senha" ? P.copiado : P.copiar}</Button>
+    <ClientModal title={created ? "Acesso criado" : "Nova senha temporária"} sub={P.senhaTitulo} icon="key" onClose={onDone}>
+      <div className={m.fg}>
+        <div className={m.kv} style={{ borderTop: 0, paddingTop: 0 }}><span>Pessoa</span><span>{name} · {email}</span></div>
+        <label className={m.f}>
+          {P.senhaCampo}
+          <span style={{ display: "flex", gap: 8 }}>
+            <input className={`${m.in} ${m.mono}`} readOnly value={password} onFocus={(e) => e.currentTarget.select()} />
+            <button type="button" className={m.btn2} onClick={() => copy(password, "senha")}><Icon name={copied === "senha" ? "check" : "clip"} size={14} /> {copied === "senha" ? P.copiado : P.copiar}</button>
+          </span>
+        </label>
+        <label className={m.f}>
+          {P.mensagemPronta}
+          <textarea className={m.in} rows={4} readOnly value={message} onFocus={(e) => e.currentTarget.select()} />
+        </label>
       </div>
-      <span className={s.label}>{P.mensagemPronta}</span>
-      <p className={s.msg}>{message}</p>
-      <p className={s.note}>{P.validade(days)}</p>
-      <div className={s.actionsRow}>
-        <Button type="button" variant="ghost" onClick={() => copy(message, "msg")}>{copied === "msg" ? P.copiado : P.copiarMensagem}</Button>
+      <div className={m.note}><Icon name="info" size={15} /><span>{P.validade(days)}</span></div>
+      <div className={m.df}>
+        <button type="button" className={m.btn2} onClick={() => copy(message, "msg")}>{copied === "msg" ? P.copiado : P.copiarMensagem}</button>
         <Button type="button" onClick={onDone}>{P.pronto}</Button>
       </div>
-    </div>
+    </ClientModal>
   );
 }

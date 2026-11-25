@@ -13,8 +13,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  // O app lê a sessão (cookies) em quase toda página; sem Cache Components
-  // cada página autenticada é dinâmica e não precisa de <Suspense> em volta.
+  // Raiz do projeto fixa: evita o Turbopack pegar um package-lock.json de fora da pasta.
+  turbopack: { root: process.cwd() },
   cacheComponents: false,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

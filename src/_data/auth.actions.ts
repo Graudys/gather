@@ -42,7 +42,8 @@ export async function signIn(form: FormData) {
     throw e;
   }
   await logAccess(userId, "LOGIN", "password", ip, ua);
-  redirect(safeNext(next));
+  // Passa pela abertura (logo animado) enquanto o app carrega.
+  redirect(`/abrindo?next=${encodeURIComponent(safeNext(next))}`);
 }
 
 // ── Primeiro acesso: senha nova + 18 anos + termos
@@ -77,8 +78,10 @@ export async function completeFirstAccess(form: FormData) {
   ]);
   // Outros aparelhos que entraram com a temporária saem.
   await auth.api.revokeOtherSessions({ headers: await headers() });
+  // Renova o cache da sessão no cookie (senão ele ainda diria "precisa trocar a senha").
+  await auth.api.getSession({ headers: await headers(), query: { disableCookieCache: true } });
   await logAccess(user.id, "PASSWORD_CHANGED", "first_access", ip, await requestUserAgent());
-  redirect("/app");
+  redirect("/abrindo?next=%2Fapp");
 }
 
 // ── Trocar senha (Perfil): pede a atual e derruba os outros aparelhos

@@ -1,13 +1,18 @@
-import { AppHeader } from "@/_components/app/AppHeader";
 import { requireReadyUser } from "@/_lib/auth/dal";
-import s from "@/_styles/app/AppShell.module.css";
+import { CloseDetailsOnOutside } from "@/_components/ui/CloseDetailsOnOutside";
+import { OrbiWidget } from "@/_components/help/OrbiWidget";
+import { LiveRefresh } from "@/_components/chat/LiveRefresh";
 
+// Tudo em /app exige login e primeiro acesso feito. A casca (barra lateral e
+// topo) fica nos layouts de baixo: /app/w/[id] e (conta).
 export default async function AppLayout({ children }: LayoutProps<"/app">) {
   const user = await requireReadyUser("/app");
   return (
-    <div className={s.shell}>
-      <AppHeader name={user.name} isAdmin={user.role === "admin"} />
-      <div className={s.content}>{children}</div>
-    </div>
+    <>
+      <CloseDetailsOnOutside />
+      <OrbiWidget name={user.name} />
+      <LiveRefresh />
+      {children}
+    </>
   );
 }

@@ -1,0 +1,19 @@
+.bone { display: block; background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface-3) 50%, var(--surface-2) 100%); background-size: 200% 100%; animation: shimmer 1.4s ease-in-out infinite; flex: none; }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .bone { animation: none; } }
+
+.chat { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.head { display: flex; align-items: center; gap: 12px; padding: 18px 24px; border-bottom: 1px solid var(--line); min-height: 60px; }
+.msgs { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 18px; padding: 16px 24px; }
+.msg { display: flex; gap: 12px; }
+.lines { display: flex; flex-direction: column; gap: 7px; }
+.composer { padding: 12px 24px 20px; }
+
+.page { flex: 1; overflow: hidden; padding: 28px 36px; display: flex; flex-direction: column; gap: 14px; }
+.cols { display: flex; gap: 14px; margin-top: 10px; }
+.col { width: 290px; display: flex; flex-direction: column; gap: 8px; background: var(--bg-sidebar); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 10px; }
+.card { display: flex; flex-direction: column; gap: 9px; background: var(--surface); border: 1px solid var(--line); border-radius: 11px; padding: 14px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-top: 8px; }
+.rows { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); margin-top: 8px; }
+.row { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--line); }
+.row:last-child { border-bottom: 0; }

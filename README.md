@@ -24,6 +24,42 @@ npm run dev                # http://localhost:3000 → entre com a senha tempor�
 Depois de entrar, vá em **Admin › Pessoas › Criar acesso** para cada pessoa do
 time. A senha aparece uma vez só, com uma mensagem pronta para mandar.
 
+## O que já funciona
+
+- Login fechado, primeiro acesso, Admin › Pessoas, Erros e acessos
+- **Chat**: canais públicos e privados, conversas diretas e em grupo, threads,
+  reações, editar e apagar, não lidas, atualização automática a cada 4 s
+- **Projetos e tarefas**: equipes (públicas ou privadas), projetos com colunas
+  próprias, quadro com arrastar e soltar, lista, painel da tarefa (status, prioridade,
+  prazo, responsáveis, etiquetas, comentários, atividade) e Minhas tarefas
+- **Calendário**: semana e mês, eventos do workspace ou só para convidados,
+  respostas (vou/talvez/não vou), prazos das suas tarefas, sala de reunião no evento
+- **Reuniões por áudio (LiveKit)**: iniciar agora, teste do microfone antes de entrar,
+  limite de pessoas e de tempo, minutos por mês, notas, decisões e tarefas criadas
+  na reunião, resumo depois que acaba. Nada é gravado.
+- **Notificações** (sino): mensagens diretas, threads, tarefas, comentários,
+  convites, lembretes de evento e quando te adicionam num workspace
+- **Busca** no workspace: mensagens, tarefas, projetos, eventos e pessoas
+  (só o que você pode ver)
+- **Central de ajuda e Orbi**: artigos em markdown, Orbi responde pelos artigos,
+  "Mandar para o admin"; Admin › Central de ajuda com editor e 10 artigos iniciais
+- **Admin do Gather**: visão geral (pessoas ativas, mensagens, reuniões, uso do
+  banco e do LiveKit, rotinas), workspaces (reuniões, minutos, prazos, adicionar,
+  papéis, transferir dono, suspender), configurações (recursos, manutenção,
+  prazos permitidos, limites e teto do LiveKit), registro de ações com CSV e
+  registros de acesso só com motivo (IP cortado). Toda ação pede motivo.
+- **Configurações do workspace**: adicionar pessoas (que já têm acesso ao Gather),
+  papéis, prazos de mensagens e arquivos, apagar workspace
+- **Limpeza diária** (`/api/cron/diario`, Vercel Cron às 03:00): mensagens fora do
+  prazo, registros velhos, sessões vencidas. Precisa de `CRON_SECRET` na Vercel.
+
+## LiveKit (reuniões)
+
+1. `LIVEKIT_URL`, `LIVEKIT_API_KEY` e `LIVEKIT_API_SECRET` no `.env.local` e na Vercel.
+2. Depois do deploy, em LiveKit Cloud › Settings › Webhooks, adicione
+   `https://SEU-APP.vercel.app/api/livekit/webhook` (deixa a contagem de minutos
+   certa mesmo se alguém fechar o navegador).
+
 ## Pastas
 
 ```
