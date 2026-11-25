@@ -8,6 +8,7 @@ import { Alert } from "@/_components/ui/Alert";
 import { signIn } from "@/_data/auth.actions";
 import { getSessionUser } from "@/_lib/auth/dal";
 import { t } from "@/_i18n";
+import { DeviceSignedOut } from "@/_components/pwa/DeviceSignedOut";
 
 export const metadata: Metadata = { title: "Entrar" };
 
@@ -18,10 +19,11 @@ export default async function Entrar({ searchParams }: PageProps<"/entrar">) {
   const user = await getSessionUser();
   if (user) redirect(user.ready ? "/app" : "/primeiro-acesso");
 
-  const { erro, next } = (await searchParams) as { erro?: string; next?: string };
+  const { erro, next, saiu } = (await searchParams) as { erro?: string; next?: string; saiu?: string };
   const msg = erro ? (ERROS[erro as keyof typeof ERROS] ?? ERROS.geral) : null;
   return (
     <AuthCard title={t.auth.entrar.titulo} subtitle={t.auth.entrar.sub}>
+      {saiu === "1" && <DeviceSignedOut />}
       {msg && <Alert>{msg}</Alert>}
       <AuthForm action={signIn}>
         <input type="hidden" name="next" value={next ?? ""} />

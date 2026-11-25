@@ -14,6 +14,7 @@ export const LIMITS = {
   tasks: { max: 120, windowSec: 60 },
   orbi: { max: 30, windowSec: 60 },
   workspaceMembers: { max: 60, windowSec: 60 * 60 },
+  pushSubscribe: { max: 10, windowSec: 60 * 60 },
 } as const;
 
 /**

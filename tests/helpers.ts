@@ -5,12 +5,17 @@ import { vi } from "vitest";
  * O resto (Prisma, regras de acesso em _data e dal.ts) é o código real,
  * rodando contra o banco de teste.
  */
-export const session: { user: Record<string, unknown> | null } = { user: null };
+export const session: { user: Record<string, unknown> | null; id: string | null } = { user: null, id: null };
 
 export function setSessionUser(u: { id: string; email?: string; name?: string; role?: string } | null) {
   session.user = u
     ? { email: `${u.id}@t.test`, name: "Teste", role: "user", banned: false, mustChangePassword: false, ageConfirmedAt: new Date(), termsAcceptedAt: new Date(), ...u }
     : null;
+}
+
+/** Id da sessão do aparelho "logado" (precisa existir na tabela sessions para inscrições de push). */
+export function setSessionId(id: string | null) {
+  session.id = id;
 }
 
 export class Redirect extends Error {
@@ -29,5 +34,5 @@ vi.mock("next/navigation", () => ({
   notFound: () => { throw new NotFound(); },
 }));
 vi.mock("@/_lib/auth/auth", () => ({
-  auth: { api: { getSession: async () => (session.user ? { user: session.user, session: {} } : null) } },
+  auth: { api: { getSession: async () => (session.user ? { user: session.user, session: { id: session.id } } : null) } },
 }));

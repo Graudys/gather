@@ -1,4 +1,4 @@
-.splash { flex: 1; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; background: var(--bg); }
+.splash { flex: 1; min-height: calc(100vh - var(--tb)); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; background: var(--bg); }
 .bar { position: fixed; top: 0; left: 0; height: 2px; width: 30%; background: linear-gradient(90deg, var(--accent-1), var(--accent-2)); animation: grow 2.4s cubic-bezier(.2, .7, .2, 1) forwards; }
 @keyframes grow { from { width: 0; } to { width: 85%; } }
 .center { flex: 1; display: grid; place-items: center; padding: 60px; }

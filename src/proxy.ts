@@ -28,6 +28,9 @@ export async function proxy(request: NextRequest) {
     "base-uri 'self'",
     "object-src 'none'",
     "manifest-src 'self'",
+    // Service worker do PWA (public/sw.js). Com 'strict-dynamic' no script-src,
+    // sem esta linha o navegador recusaria registrar o worker.
+    "worker-src 'self'",
     ...(isDev ? [] : ["upgrade-insecure-requests"]),
   ].join("; ");
 
@@ -51,7 +54,7 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     {
-      source: "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|manifest.webmanifest|icons/|api/cron|api/livekit/webhook|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+      source: "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|manifest.webmanifest|sw.js|icons/|api/cron|api/livekit/webhook|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },
