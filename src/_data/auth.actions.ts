@@ -118,5 +118,6 @@ export async function signOut(form: FormData) {
   // signOut apaga o cookie mesmo se a sessão já foi revogada acima.
   await auth.api.signOut({ headers: h }).catch(() => undefined);
   if (user) await logAccess(user.id, all ? "LOGOUT_ALL" : "LOGOUT", null, await clientIp(), await requestUserAgent());
-  redirect("/entrar");
+  // "saiu=1": a página de entrar limpa o cache e a inscrição de push deste aparelho.
+  redirect("/entrar?saiu=1");
 }

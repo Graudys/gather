@@ -11,6 +11,7 @@ import { db } from "@/_lib/db/prisma";
 import { LIMITES } from "@/lib/validation";
 import { TIMEZONES } from "@/lib/profile";
 import { t } from "@/_i18n";
+import { DeviceCard } from "@/_components/pwa/DeviceCard";
 import f from "@/_styles/ui/Field.module.css";
 import s from "@/_styles/app/Profile.module.css";
 
@@ -41,6 +42,7 @@ export default async function Perfil({ searchParams }: PageProps<"/app/perfil">)
     where: { id: sess.id },
     select: { id: true, name: true, email: true, username: true, bio: true, timezone: true, notifyPrefs: true, createdAt: true },
   });
+  const devices = (await db.$queryRaw<{ n: number }[]>`select count(*)::int as n from push_subscriptions where user_id = ${sess.id}::uuid`)[0]?.n ?? 0;
   const prefs = (user.notifyPrefs ?? {}) as Record<string, boolean>;
   const on = (k: string) => prefs[k] !== false;
 
@@ -94,6 +96,12 @@ export default async function Perfil({ searchParams }: PageProps<"/app/perfil">)
             <div className={s.actions}><Button>Salvar alterações</Button></div>
           </div>
         </form>
+      ) : null}
+      {tab === "perfil" ? (
+        <div className={s.layout}>
+          <span aria-hidden="true" />
+          <div className={s.col}><DeviceCard devices={devices} /></div>
+        </div>
       ) : (
         <div className={s.narrow}>
           <section className={s.card2}>

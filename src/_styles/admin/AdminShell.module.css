@@ -1,4 +1,4 @@
-.shell { min-height: 100vh; display: grid; grid-template-columns: 240px 1fr; }
+.shell { min-height: calc(100vh - var(--tb)); display: grid; grid-template-columns: 240px 1fr; }
 .nav { display: flex; flex-direction: column; gap: 2px; padding: 16px 12px; border-right: 1px solid var(--line); background: var(--bg-sidebar); font-size: 14px; }
 .brand { display: flex; align-items: center; gap: 8px; padding: 0 8px 16px; }
 .badge { background: #372c12; color: var(--admin); font-size: 11px; font-weight: 700; letter-spacing: .04em; padding: 2px 7px; border-radius: 6px; margin-left: auto; }
@@ -16,5 +16,5 @@
 .on, .off { width: 7px; height: 7px; border-radius: 50%; }
 .on { background: var(--ok); }
 .off { background: var(--warn); }
-.shell { min-height: 100vh; }
+.shell { min-height: calc(100vh - var(--tb)); }
 .main { overflow-x: auto; }

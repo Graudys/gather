@@ -128,6 +128,7 @@ export async function getTaskDetail(workspaceId: string, taskId: string): Promis
         take: 200,
         select: { id: true, content: true, createdAt: true, author: { select: { id: true, name: true } } },
       },
+      attachments: { orderBy: { createdAt: "asc" }, select: { id: true, fileName: true, mimeType: true, sizeBytes: true, createdById: true } },
     },
   });
   const activity = await db.activityEvent.findMany({
@@ -141,6 +142,7 @@ export async function getTaskDetail(workspaceId: string, taskId: string): Promis
     createdBy: t.createdBy,
     createdAt: t.createdAt.toISOString(),
     canDelete: ctx.canDeleteTask,
+    files: t.attachments.map((a) => ({ id: a.id, name: a.fileName, mime: a.mimeType, size: Number(a.sizeBytes), expired: false, mine: a.createdById === ctx.user.id })),
     commentList: t.comments.map((c) => ({ id: c.id, author: c.author, content: c.content, createdAt: c.createdAt.toISOString(), mine: c.author?.id === ctx.user.id })),
     activity: activity.map((a) => ({ text: activityText(a.actor?.name ?? "Alguém", a.eventType, a.metadata as Record<string, string>), at: a.createdAt.toISOString() })),
   };
@@ -153,6 +155,7 @@ function activityText(who: string, type: string, m: Record<string, string>) {
     case "task_assigned": return `${who} mudou os responsáveis`;
     case "task_commented": return `${who} comentou`;
     case "task_edited": return `${who} editou ${m.field ?? "a tarefa"}`;
+    case "task_file": return `${who} anexou ${m.files ?? "um arquivo"}`;
     default: return `${who} mexeu na tarefa`;
   }
 }

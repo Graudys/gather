@@ -1,0 +1,48 @@
+/* Arquivos e fotos (mockup "Ov_Anexo" e anexos da tarefa). */
+.files { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; max-width: 520px; }
+.photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
+.single { grid-template-columns: minmax(0, 360px); }
+.photoWrap { position: relative; }
+.photo { display: block; border-radius: 12px; overflow: hidden; border: 1px solid var(--line-2); background: var(--surface-2); aspect-ratio: 4 / 3; }
+.single .photo { aspect-ratio: auto; max-height: 320px; }
+.photo img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .2s; }
+.single .photo img { height: auto; max-height: 320px; object-fit: contain; }
+.photo:hover img { transform: scale(1.02); }
+.file { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--surface); }
+.badge { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: #2b2150; color: #b199ff; flex: none; }
+.meta { flex: 1; min-width: 0; display: flex; flex-direction: column; text-decoration: none; color: inherit; }
+.meta b { font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meta small { font-size: 12px; color: var(--text-muted); }
+a.meta:hover b { text-decoration: underline; text-underline-offset: 3px; }
+.dl { display: inline-flex; width: 32px; height: 32px; align-items: center; justify-content: center; border-radius: 8px; color: var(--text-muted); }
+.dl:hover { background: var(--surface-2); color: var(--text); }
+.expired { opacity: .7; border-style: dashed; }
+.expired .badge { background: var(--surface-3); color: var(--text-muted); }
+
+.drop { border: 1.5px dashed var(--line-3); border-radius: 14px; padding: 26px 16px; text-align: center; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; transition: border-color .15s, background-color .15s; font-size: 14px; }
+.drop:hover, .drop:focus-visible { border-color: var(--accent); outline: none; }
+.dropOver { border-color: var(--accent); background: rgba(124, 92, 240, .08); }
+.drop small { font-size: 12px; color: var(--text-faint); }
+.pickLink { color: #b199ff; font-weight: 500; }
+.queue { margin-top: 14px; }
+.qRow { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.qThumb { width: 34px; height: 34px; border-radius: 9px; object-fit: cover; flex: none; }
+.qMain { flex: 1; min-width: 0; }
+.qTop { display: flex; gap: 8px; align-items: baseline; }
+.qName { flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qTop small { color: var(--text-muted); font-size: 12px; }
+.qErr { color: var(--danger-text); font-size: 12px; }
+.prog { height: 4px; border-radius: 4px; background: #26262e; overflow: hidden; margin-top: 6px; }
+.prog i { display: block; height: 100%; background: linear-gradient(90deg, #5b8cff, #b08cff); transition: width .2s; }
+.ok { color: #55da8f; display: flex; }
+.pct { min-width: 32px; text-align: right; font-size: 12px; color: var(--text-muted); }
+.dragHint { position: absolute; inset: 0; z-index: 5; border: 2px dashed var(--accent); border-radius: 14px; background: rgba(20, 16, 40, .85); display: flex; align-items: center; justify-content: center; gap: 8px; color: #fff; font-weight: 500; pointer-events: none; }
+.taskHead { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.taskTitle { flex: 1; font-size: 14px; font-weight: 600; }
+.addBtn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line-3); background: var(--surface); color: var(--text-strong); font: 500 12px var(--font); cursor: pointer; }
+.addBtn:hover { border-color: var(--accent); }
+.emptyDrop { width: 100%; border: 1px dashed var(--line-3); border-radius: 12px; padding: 14px; background: none; color: var(--text-muted); font: 400 13px var(--font); cursor: pointer; }
+.emptyDrop:hover { border-color: var(--accent); color: var(--text); }
+.rm { display: inline-flex; width: 30px; height: 30px; align-items: center; justify-content: center; border-radius: 8px; color: var(--text-muted); background: none; border: 0; cursor: pointer; }
+.rm:hover { background: #3a1d22; color: var(--danger-text); }
+.photoWrap .rm { position: absolute; top: 6px; right: 6px; background: rgba(0, 0, 0, .6); color: #fff; }

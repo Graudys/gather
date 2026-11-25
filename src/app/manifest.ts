@@ -10,6 +10,8 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/app",
     scope: "/",
     display: "standalone",
+    // No PC (Chrome/Edge): some a barra de título do navegador; ficam só os botões da janela.
+    display_override: ["window-controls-overlay", "standalone"],
     background_color: "#0c0c10",
     theme_color: "#0c0c10",
     icons: [

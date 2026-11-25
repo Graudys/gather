@@ -1,5 +1,7 @@
 import "server-only";
+import { after } from "next/server";
 import { db } from "@/_lib/db/prisma";
+import { sendPush } from "@/_lib/server/push";
 
 /**
  * Avisos no sino (só dentro do app; a versão pessoal não manda e-mail).
@@ -56,6 +58,10 @@ export async function notify(userIds: string[], n: NotifyInput) {
         data: { userId, workspaceId: n.workspaceId ?? null, type: n.type, title: n.title, body: n.body ?? null, payload: { href: n.href, ...(n.key ? { key: n.key, count: 1 } : {}) } },
       });
     }
+    // Aviso no aparelho (PWA), depois da resposta: não atrasa a ação de quem enviou.
+    // Vai só o tipo do aviso e o link; o texto que aparece é genérico (src/lib/push.ts).
+    const to = ids;
+    after(() => sendPush(to, { type: n.type, href: n.href, tag: n.key }).catch((e) => console.error("[push] falhou", e)));
   } catch (e) {
     // Aviso que falha não pode quebrar a ação principal.
     console.error("[notify] falhou", e);
