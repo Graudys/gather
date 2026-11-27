@@ -15,6 +15,9 @@ export const LIMITS = {
   orbi: { max: 30, windowSec: 60 },
   workspaceMembers: { max: 60, windowSec: 60 * 60 },
   pushSubscribe: { max: 10, windowSec: 60 * 60 },
+  chatIcon: { max: 30, windowSec: 60 * 60 },
+  noteSave: { max: 900, windowSec: 60 * 60 },
+  photo: { max: 20, windowSec: 60 * 60 },
 } as const;
 
 /**
@@ -33,7 +36,10 @@ export async function hit(kind: keyof typeof LIMITS, key: string): Promise<boole
         window_start = case when rate_limits.window_start < now() - make_interval(secs => ${windowSec}) then now() else rate_limits.window_start end
       returning count`;
     return (rows[0]?.count ?? max + 1) <= max;
-  } catch {
+  } catch (e) {
+    // Bloqueia por segurança, mas deixa claro no terminal/log que foi o banco,
+    // e não excesso de tentativas (antes aparecia só "Muitas tentativas").
+    console.error(`[rate-limit] banco indisponível ao conferir "${kind}":`, e instanceof Error ? e.message : e);
     return false;
   }
 }

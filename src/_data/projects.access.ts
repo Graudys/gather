@@ -29,7 +29,7 @@ export async function requireProject(workspaceId: string, projectId: string) {
   const project = await db.project.findFirst({
     where: { id: projectId, team: { workspaceId, ...teamVisibleTo(ctx.user.id) } },
     select: {
-      id: true, name: true, description: true, status: true, startDate: true, dueDate: true, createdById: true,
+      id: true, name: true, description: true, status: true, isFixed: true, startDate: true, dueDate: true, createdById: true,
       team: { select: { id: true, name: true, visibility: true, members: { where: { userId: ctx.user.id }, select: { role: true } } } },
       members: { where: { userId: ctx.user.id }, select: { role: true } },
     },

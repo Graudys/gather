@@ -1,4 +1,5 @@
 import "server-only";
+import { photoVersion } from "@/lib/images";
 import { db } from "@/_lib/db/prisma";
 import { requireMember } from "@/_lib/auth/dal";
 import type { MemberRow } from "@/types/domain";
@@ -12,8 +13,8 @@ export async function getWorkspaceSettingsView(workspaceId: string) {
       orderBy: [{ role: "asc" }, { joinedAt: "asc" }],
       select: { role: true, joinedAt: true, user: { select: { id: true, name: true, email: true } } },
     }),
-    db.workspaceSettings.findUnique({ where: { workspaceId }, select: { messageRetentionMonths: true, fileRetentionHours: true, defaultChannelVisibility: true } }),
-    db.workspace.findUnique({ where: { id: workspaceId }, select: { description: true } }),
+    db.workspaceSettings.findUnique({ where: { workspaceId }, select: { messageRetentionMonths: true, fileRetentionHours: true, noteRetentionMonths: true, defaultChannelVisibility: true } }),
+    db.workspace.findUnique({ where: { id: workspaceId }, select: { description: true, icon: true, imagePath: true } }),
     db.platformConfig.findUnique({ where: { id: 1 }, select: { messageRetentionOptions: true, fileRetentionOptions: true } }),
     db.adminAction.findMany({
       where: { workspaceId, action: { startsWith: "ws_" } },
@@ -34,9 +35,11 @@ export async function getWorkspaceSettingsView(workspaceId: string) {
     role: ctx.role,
     workspace: ctx.workspace,
     description: ws?.description ?? "",
+    icon: ws?.icon ?? null,
+    photoV: photoVersion(ws?.imagePath),
     channelVisibility: settings?.defaultChannelVisibility ?? "PUBLIC",
     members,
-    retention: { messageMonths: settings?.messageRetentionMonths ?? 3, fileHours: settings?.fileRetentionHours ?? 24 },
+    retention: { messageMonths: settings?.messageRetentionMonths ?? 3, fileHours: settings?.fileRetentionHours ?? 24, noteMonths: settings?.noteRetentionMonths ?? 12 },
     options: { months: cfg?.messageRetentionOptions ?? [1, 2, 3, 6, 12], hours: cfg?.fileRetentionOptions ?? [24, 168] },
     history: actions.map((a) => ({
       text: `${a.admin?.name ?? "Alguém"} · ${a.reason}${a.targetUser ? ` · ${a.targetUser.name}` : ""}`,

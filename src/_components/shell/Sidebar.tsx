@@ -1,10 +1,11 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AppShellData } from "@/_data/shell";
 import { Icon, type IconName } from "@/_components/ui/Icon";
 import { colorFor } from "@/_components/chat/Avatar";
+import { WsBadge } from "@/_components/shell/WsBadge";
 import { useShell } from "@/_components/shell/ShellContext";
 import s from "@/_styles/shell/Shell.module.css";
 
@@ -26,6 +27,24 @@ export function Sidebar({ data, startCollapsed }: { data: AppShellData; startCol
   const path = usePathname();
   const { drawer, setDrawer, setNewWs } = useShell();
   const [treeOpen, setTreeOpen] = useState(true);
+  // Grupos "Projetos" e "Equipes" da árvore: abertos ou recolhidos (lembra neste navegador).
+  const [groups, setGroups] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setGroups(JSON.parse(localStorage.getItem("gather:tree") ?? "{}"));
+    } catch {
+      /* sem armazenamento: tudo aberto */
+    }
+  }, []);
+  const setGroup = (k: string, v: boolean) => {
+    const next = { ...groups, [k]: v };
+    setGroups(next);
+    try { localStorage.setItem("gather:tree", JSON.stringify(next)); } catch { /* ok */ }
+  };
+  const openProjects = groups.projetos !== false;
+  const openTeams = groups.equipes !== false;
+  const wsInfo = (id: string) => data.workspaces.find((w) => w.id === id) ?? { id, name: ws?.name ?? "", icon: null, photoV: "" };
   const [collapsed, setCollapsed] = useState(startCollapsed);
   const toggle = () => {
     // Lembra no cookie para o servidor já desenhar recolhida (sem piscar).
@@ -68,7 +87,7 @@ export function Sidebar({ data, startCollapsed }: { data: AppShellData; startCol
         {ws && (
           <details className={s.wswWrap}>
             <summary className={s.wsw} aria-label={`Trocar de workspace: ${ws.name}`}>
-              <span className={s.sq} style={{ background: colorFor(ws.id), width: 30, height: 30, borderRadius: 9, fontSize: 13 }}>{ws.name[0]?.toUpperCase()}</span>
+              <WsBadge w={wsInfo(ws.id)} size={30} />
               <span className={s.wswText}>
                 <b>{ws.name}</b>
                 <small>{ws.kind === "PERSONAL" ? "Só você" : `${data.workspaces.find((w) => w.id === ws.id)?.people ?? 1} membros`}</small>
@@ -79,7 +98,7 @@ export function Sidebar({ data, startCollapsed }: { data: AppShellData; startCol
               <span className={s.menuTitle}>Workspaces</span>
               {data.workspaces.map((w) => (
                 <Link key={w.id} href={`/app/w/${w.id}`} className={`${s.menuItem} ${w.id === ws.id ? s.menuOn : ""}`}>
-                  <span className={s.sq} style={{ background: colorFor(w.id) }}>{w.name[0]?.toUpperCase()}</span>
+                  <WsBadge w={w} />
                   <span className={s.grow}>{w.name}</span>
                   {w.id === ws.id && <Icon name="check" size={14} />}
                 </Link>
@@ -95,6 +114,7 @@ export function Sidebar({ data, startCollapsed }: { data: AppShellData; startCol
         <div className={s.scroll}>
           {item(base, "home", "Início", path === base)}
           {item("/app/notificacoes", "bell", "Notificações", under("/app/notificacoes"), data.unread)}
+          {ws?.kind === "PERSONAL" && item(`${base}/notas`, "file", "Notas", under(`${base}/notas`))}
           {ws && item(`${base}/mensagens`, "chat", "Mensagens", under(`${base}/mensagens`) || under(`${base}/c`) || under(`${base}/dm`) || under(`${base}/novo-canal`) || under(`${base}/nova-conversa`))}
           {team && item(`${base}/equipes`, "users", "Equipes", under(`${base}/equipes`))}
           {ws && item(`${base}/projetos`, "folder", "Projetos", under(`${base}/projetos`) || under(`${base}/p`))}
@@ -110,7 +130,7 @@ export function Sidebar({ data, startCollapsed }: { data: AppShellData; startCol
             <>
               <div className={`${s.nv} ${s.wsRow} ${path === base ? s.on : ""}`}>
                 <Link href={base} className={s.wsLink} title={collapsed ? ws.name : undefined}>
-                  <span className={s.sq} style={{ background: colorFor(ws.id) }}>{ws.name[0]?.toUpperCase()}</span>
+                  <WsBadge w={wsInfo(ws.id)} />
                   <span className={s.label}>{ws.kind === "PERSONAL" ? "Pessoal" : ws.name}</span>
                 </Link>
                 <button type="button" className={`${s.caret} ${treeOpen ? s.caretOpen : ""}`} onClick={() => setTreeOpen(!treeOpen)} aria-expanded={treeOpen} aria-label={treeOpen ? "Esconder projetos e equipes" : "Mostrar projetos e equipes"}>
@@ -119,14 +139,35 @@ export function Sidebar({ data, startCollapsed }: { data: AppShellData; startCol
               </div>
               {treeOpen && (
                 <div className={s.tree}>
-                  <Link href={`${base}/projetos`} className={`${s.nv} ${s.sub}`}><Icon name="folder" size={15} /><span className={s.label}>Projetos</span></Link>
-                  {ws.projects.map((p) => (
+                  {ws.routine && (
+                    <Link href={`${base}/p/${ws.routine.id}`} className={`${s.nv} ${s.sub} ${under(`${base}/p/${ws.routine.id}`) ? s.pill : ""}`} title="Seu quadro pessoal (fixo)">
+                      <Icon name="board" size={15} /><span className={s.label}>{ws.routine.name}</span>
+                    </Link>
+                  )}
+                  <div className={`${s.nv} ${s.sub} ${s.groupRow}`}>
+                    <Link href={`${base}/projetos`} className={s.groupLink}><Icon name="folder" size={15} /><span className={s.label}>Projetos</span></Link>
+                    {ws.projects.length > 0 && (
+                      <button type="button" className={`${s.caret} ${openProjects ? s.caretOpen : ""}`} onClick={() => setGroup("projetos", !openProjects)} aria-expanded={openProjects} aria-label={openProjects ? "Recolher projetos" : "Mostrar projetos"}>
+                        <Icon name="down" size={13} />
+                      </button>
+                    )}
+                  </div>
+                  {openProjects && ws.projects.map((p) => (
                     <Link key={p.id} href={`${base}/p/${p.id}`} className={`${s.nv} ${s.sub2} ${under(`${base}/p/${p.id}`) ? s.pill : ""}`} title={p.name}>
+                      <span className={s.sq} style={{ background: colorFor(p.id), width: 16, height: 16, fontSize: 9, borderRadius: 5 }}>{p.name[0]?.toUpperCase()}</span>
                       <span className={s.label}>{p.name}</span>
                     </Link>
                   ))}
-                  {ws.teams.map((t) => (
-                    <Link key={t.id} href={`${base}/equipes/${t.id}`} className={`${s.nv} ${s.sub} ${under(`${base}/equipes/${t.id}`) ? s.pill : ""}`} title={t.name}>
+                  {ws.teams.length > 0 && (
+                    <div className={`${s.nv} ${s.sub} ${s.groupRow}`}>
+                      <Link href={`${base}/equipes`} className={s.groupLink}><Icon name="users" size={15} /><span className={s.label}>Equipes</span></Link>
+                      <button type="button" className={`${s.caret} ${openTeams ? s.caretOpen : ""}`} onClick={() => setGroup("equipes", !openTeams)} aria-expanded={openTeams} aria-label={openTeams ? "Recolher equipes" : "Mostrar equipes"}>
+                        <Icon name="down" size={13} />
+                      </button>
+                    </div>
+                  )}
+                  {openTeams && ws.teams.map((t) => (
+                    <Link key={t.id} href={`${base}/equipes/${t.id}`} className={`${s.nv} ${s.sub2} ${under(`${base}/equipes/${t.id}`) ? s.pill : ""}`} title={t.name}>
                       <span className={s.sq} style={{ background: colorFor(t.id), width: 16, height: 16, fontSize: 9, borderRadius: 5 }}>{t.name[0]?.toUpperCase()}</span>
                       <span className={s.label}>{t.name}</span>
                     </Link>
@@ -137,7 +178,7 @@ export function Sidebar({ data, startCollapsed }: { data: AppShellData; startCol
           )}
           {data.workspaces.filter((w) => w.id !== ws?.id).map((w) => (
             <Link key={w.id} href={`/app/w/${w.id}`} className={s.nv} title={collapsed ? w.name : undefined}>
-              <span className={s.sq} style={{ background: colorFor(w.id) }}>{w.name[0]?.toUpperCase()}</span>
+              <WsBadge w={w} />
               <span className={s.label}>{w.kind === "PERSONAL" ? "Pessoal" : w.name}</span>
             </Link>
           ))}

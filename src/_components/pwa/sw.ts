@@ -7,7 +7,9 @@ export const pwaEnabled = () =>
 export async function registerSw() {
   if (!pwaEnabled()) return null;
   try {
-    return await navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" });
+    // Em dev os arquivos do Next não mudam de nome a cada versão: o worker não guarda nada (?dev=1).
+    const url = process.env.NODE_ENV === "production" ? "/sw.js" : "/sw.js?dev=1";
+    return await navigator.serviceWorker.register(url, { scope: "/", updateViaCache: "none" });
   } catch {
     return null;
   }
@@ -32,3 +34,36 @@ export const isStandalone = () =>
   (window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true);
 
 export const isIos = () => typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+export type PushResult = "ligado" | "bloqueado" | "desligado" | "sem-suporte" | "erro";
+
+/**
+ * Liga as notificações do sistema (Windows, Mac, Android, iPhone instalado) neste aparelho.
+ * Só deve ser chamada depois de um clique: é aqui que o navegador pede a permissão.
+ * `save` grava a inscrição no servidor (Server Action savePushSubscription).
+ */
+export async function enablePush(save: (sub: PushSubscriptionJSON) => Promise<{ ok: boolean }>): Promise<PushResult> {
+  if (!pushSupported()) return "sem-suporte";
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") return perm === "denied" ? "bloqueado" : "desligado";
+  const reg = (await navigator.serviceWorker.getRegistration("/")) ?? (await registerSw());
+  const key = vapidKey();
+  if (!reg || !key) return "sem-suporte";
+  await navigator.serviceWorker.ready;
+  const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }));
+  const r = await save(sub.toJSON());
+  if (!r.ok) {
+    await sub.unsubscribe().catch(() => undefined);
+    return "erro";
+  }
+  return "ligado";
+}
+
+/** Estado atual das notificações do sistema neste aparelho (sem pedir nada). */
+export async function pushState(): Promise<"ligado" | "desligado" | "bloqueado" | "sem-suporte" | "instalar-ios"> {
+  if (isIos() && !isStandalone()) return "instalar-ios";
+  if (!pushSupported()) return "sem-suporte";
+  if (Notification.permission === "denied") return "bloqueado";
+  const reg = await navigator.serviceWorker.getRegistration("/");
+  return (await reg?.pushManager.getSubscription()) ? "ligado" : "desligado";
+}

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { runDailyCleanup } from "@/_lib/server/cleanup";
+import { runDeadlineNotices } from "@/_lib/server/deadlines";
+import { runNoteExpiryNotices } from "@/_lib/server/notes-expiry";
 import { reportError } from "@/_lib/server/observability";
 import { db } from "@/_lib/db/prisma";
 
@@ -14,7 +16,7 @@ export async function GET(req: Request) {
   if (!ok) return new NextResponse(null, { status: 401 });
 
   try {
-    const result = await runDailyCleanup();
+    const result = { ...(await runDailyCleanup()), deadlineNotices: await runDeadlineNotices(), noteWarnings: await runNoteExpiryNotices() };
     // Fica no registro de ações (sem admin): aparece em Admin › Visão geral › Rotinas.
     await db.adminAction.create({ data: { action: "cron_cleanup", reason: "Limpeza diária", metadata: result } });
     return NextResponse.json({ ok: true, ...result });

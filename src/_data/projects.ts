@@ -102,10 +102,11 @@ export async function getBoard(workspaceId: string, projectId: string): Promise<
   const p = ctx.project;
   return {
     project: {
-      id: p.id, name: p.name, description: p.description, status: p.status,
+      id: p.id, name: p.name, description: p.description, status: p.status, isFixed: p.isFixed,
       startDate: isoDate(p.startDate), dueDate: isoDate(p.dueDate), team: { id: p.team.id, name: p.team.name }, channelId: channel?.id ?? null,
     },
     canManage: ctx.canManage,
+    canSeeInsights: ctx.wsAdmin,
     statuses,
     // Ordenado no JavaScript (texto simples), igual à regra de positionBetween.
     tasks: tasks.map(toCard).sort(byPosition),

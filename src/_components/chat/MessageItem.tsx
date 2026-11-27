@@ -1,10 +1,14 @@
 "use client";
 import { Icon } from "@/_components/ui/Icon";
+import { MeetingCard, TaskCard } from "@/_components/chat/ChatCards";
+import { TaskFromMessage } from "@/_components/chat/TaskFromMessage";
+import { MENTION_RE } from "@/lib/mentions";
 import { FileList } from "@/_components/files/FileList";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { ChatMessage } from "@/types/domain";
-import { deleteMessage, editMessage, toggleReaction } from "@/_data/chat.actions";
+import { deleteMessage, editMessage, togglePin, toggleReaction } from "@/_data/chat.actions";
 import { REACTIONS } from "@/lib/chat";
 import { LIMITES } from "@/lib/validation";
 import { Button } from "@/_components/ui/Button";
@@ -23,6 +27,9 @@ type Props = {
 export function MessageItem({ m, workspaceId, time, compact, threadHref }: Props) {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const router = useRouter();
+  const [, startPin] = useTransition();
+  const pin = () => startPin(async () => { await togglePin({ workspaceId, messageId: m.id }); router.refresh(); });
   const [picking, setPicking] = useState(false);
   const name = m.sender?.name ?? "Pessoa removida";
 
@@ -45,6 +52,7 @@ export function MessageItem({ m, workspaceId, time, compact, threadHref }: Props
           <div className={s.meta}>
             <span className={s.name}>{name}</span>
             <span className={s.time}>{time}</span>
+            {m.pinned && <span className={s.pinTag} title="Fixada no topo do canal"><Icon name="pin" size={11} /> Fixada</span>}
           </div>
         )}
 
@@ -88,10 +96,22 @@ export function MessageItem({ m, workspaceId, time, compact, threadHref }: Props
           <>
             {(m.content || m.deleted) && (
               <p className={s.text}>
-                {m.content}
+                <WithMentions text={m.content} />
                 {m.edited && <span className={s.edited}>(editada)</span>}
               </p>
             )}
+            {m.note && (
+              <Link href={`/app/w/${workspaceId}/nota/${m.note.id}`} className={s.noteCard}>
+                <span className={s.noteCardIc}><Icon name="notebook" size={18} /></span>
+                <span className={s.noteCardText}>
+                  <b>{m.note.title}</b>
+                  {m.note.preview && <small>{m.note.preview}</small>}
+                  <em>Anotação · abrir para ler</em>
+                </span>
+              </Link>
+            )}
+            {m.meeting && <MeetingCard meeting={m.meeting} workspaceId={workspaceId} />}
+            {m.task && <TaskCard task={m.task} workspaceId={workspaceId} />}
             <FileList files={m.files} />
           </>
         )}
@@ -117,10 +137,16 @@ export function MessageItem({ m, workspaceId, time, compact, threadHref }: Props
           </Link>
         )}
 
-        {confirming && (
+        {/* Some junto com a mensagem: depois de apagar não há mais o que confirmar */}
+        {confirming && !m.deleted && (
           <div className={s.confirm}>
             <span>Apagar para todo mundo?</span>
-            <form action={deleteMessage}>
+            <form
+              action={async (fd) => {
+                await deleteMessage(fd);
+                setConfirming(false);
+              }}
+            >
               <input type="hidden" name="workspaceId" value={workspaceId} />
               <input type="hidden" name="messageId" value={m.id} />
               <Button variant="ghost">Apagar</Button>
@@ -156,6 +182,8 @@ export function MessageItem({ m, workspaceId, time, compact, threadHref }: Props
             <>
               <button type="button" className={s.tool} onClick={() => setPicking(true)} title="Reagir"><Icon name="smile" /></button>
               {threadHref && <Link href={threadHref} className={s.tool} scroll={false} title="Responder em thread"><Icon name="reply" /></Link>}
+              {!m.deleted && !m.task && !m.note && <TaskFromMessage workspaceId={workspaceId} messageId={m.id} text={m.content} className={s.tool} />}
+              {m.canPin && <button type="button" className={s.tool} onClick={pin} title={m.pinned ? "Desafixar" : "Fixar no topo do canal"}><Icon name={m.pinned ? "unpin" : "pin"} /></button>}
               {m.canEdit && <button type="button" className={s.tool} onClick={() => setEditing(true)} title="Editar"><Icon name="edit" /></button>}
               {m.canDelete && <button type="button" className={`${s.tool} ${s.toolDanger}`} onClick={() => setConfirming(true)} title="Apagar"><Icon name="trash" /></button>}
             </>
@@ -164,4 +192,18 @@ export function MessageItem({ m, workspaceId, time, compact, threadHref }: Props
       )}
     </li>
   );
+}
+
+/** Destaca "@apelido" no texto (só visual; o texto continua texto, sem HTML). */
+function WithMentions({ text }: { text: string }) {
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  for (const m of text.matchAll(MENTION_RE)) {
+    const at = m.index! + m[1]!.length;
+    if (at > last) parts.push(text.slice(last, at));
+    parts.push(<span key={at} className={s.mention}>@{m[2]}</span>);
+    last = at + 1 + m[2]!.length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return <>{parts}</>;
 }

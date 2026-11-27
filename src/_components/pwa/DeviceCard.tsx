@@ -2,7 +2,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Button } from "@/_components/ui/Button";
 import { removePushSubscription, savePushSubscription } from "@/_data/push.actions";
-import { isIos, isStandalone, pushSupported, registerSw, vapidKey } from "./sw";
+import { enablePush, isIos, isStandalone, pushState } from "./sw";
 import s from "@/_styles/app/Profile.module.css";
 
 const noSubscribe = () => () => undefined;
@@ -25,13 +25,7 @@ export function DeviceCard({ devices }: { devices: number }) {
       setInstall(e as InstallEvent);
     };
     window.addEventListener("beforeinstallprompt", onPrompt);
-    (async () => {
-      if (isIos() && !isStandalone()) return setPush("instalar-ios"); // no iPhone, push só com o app na tela de início
-      if (!pushSupported()) return setPush("sem-suporte");
-      if (Notification.permission === "denied") return setPush("bloqueado");
-      const reg = await navigator.serviceWorker.getRegistration("/");
-      setPush((await reg?.pushManager.getSubscription()) ? "ligado" : "desligado");
-    })();
+    void pushState().then(setPush);
     return () => window.removeEventListener("beforeinstallprompt", onPrompt);
   }, []);
 
@@ -39,20 +33,12 @@ export function DeviceCard({ devices }: { devices: number }) {
     setBusy(true);
     setMsg(null);
     try {
-      const perm = await Notification.requestPermission(); // só aqui, depois do clique
-      if (perm !== "granted") return setPush(perm === "denied" ? "bloqueado" : "desligado");
-      const reg = (await navigator.serviceWorker.getRegistration("/")) ?? (await registerSw());
-      const key = vapidKey();
-      if (!reg || !key) return setPush("sem-suporte");
-      await navigator.serviceWorker.ready;
-      const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }));
-      const r = await savePushSubscription(sub.toJSON());
-      if (!r.ok) {
-        await sub.unsubscribe().catch(() => undefined);
+      const r = await enablePush(savePushSubscription);
+      if (r === "erro") {
         setMsg("Não deu para ligar agora. Tente de novo em alguns minutos.");
         return setPush("desligado");
       }
-      setPush("ligado");
+      setPush(r);
     } catch {
       setMsg("Este navegador não deixou ligar as notificações.");
     } finally {

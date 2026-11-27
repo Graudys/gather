@@ -42,12 +42,16 @@ export default async function AjustesProjeto({ params }: PageProps<"/app/w/[id]/
           Descrição
           <textarea name="description" defaultValue={pr.description ?? ""} maxLength={500} className={p.textarea} />
         </label>
-        <label className={p.label}>
-          Situação
-          <select name="status" defaultValue={pr.status} className={p.select}>
-            {Object.entries(PROJECT_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
-        </label>
+        {pr.isFixed ? (
+          <input type="hidden" name="status" value="ACTIVE" />
+        ) : (
+          <label className={p.label}>
+            Situação
+            <select name="status" defaultValue={pr.status} className={p.select}>
+              {Object.entries(PROJECT_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </label>
+        )}
         <div className={p.row}>
           <div className={p.grow}><Field label="Início" name="startDate" type="date" defaultValue={inputDay(pr.startDate)} /></div>
           <div className={p.grow}><Field label="Prazo" name="dueDate" type="date" defaultValue={inputDay(pr.dueDate)} /></div>
@@ -83,6 +87,9 @@ export default async function AjustesProjeto({ params }: PageProps<"/app/w/[id]/
         </form>
       </section>
 
+      {pr.isFixed ? (
+        <p className={`${p.card} ${p.narrow} ${p.note}`}>Este é o seu projeto fixo do espaço pessoal: dá para renomear e mudar as colunas, mas não apagar nem arquivar.</p>
+      ) : (
       <form action={deleteProject} className={`${p.card} ${p.narrow} ${p.danger}`}>
         {hidden}
         <b className={`${p.cardTitle} ${p.dangerTitle}`}>Apagar projeto</b>
@@ -90,6 +97,7 @@ export default async function AjustesProjeto({ params }: PageProps<"/app/w/[id]/
         <Field label={`Digite "${pr.name}" para confirmar`} name="confirm" required autoComplete="off" />
         <div className={p.actions}><Button variant="ghost">Apagar projeto</Button></div>
       </form>
+      )}
     </div>
   );
 }

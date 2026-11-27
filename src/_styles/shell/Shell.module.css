@@ -118,3 +118,34 @@
 
 @keyframes pop { 0% { transform: scale(.6); } 70% { transform: scale(1.12); } 100% { transform: scale(1); } }
 @keyframes fade { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+/* Sino: card com os avisos recentes */
+.bell { position: relative; }
+.bellCard { position: absolute; right: -8px; top: calc(100% + 8px); z-index: 80; width: min(380px, calc(100vw - 24px)); background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 14px; box-shadow: 0 18px 44px rgba(0, 0, 0, .55); animation: fade .14s ease-out both; display: flex; flex-direction: column; overflow: hidden; }
+.bellHead { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.bellCount { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--accent); color: #fff; font-weight: 600; }
+.bellLink { background: none; border: 0; color: var(--accent-text, #9f8cff); font: inherit; font-size: 12.5px; cursor: pointer; padding: 2px 0; white-space: nowrap; }
+.bellLink:hover { text-decoration: underline; }
+.bellPush { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 12.5px; color: var(--text-muted); background: var(--surface); border-bottom: 1px solid var(--line); }
+.bellPush span { flex: 1; }
+.bellList { list-style: none; margin: 0; padding: 4px; max-height: min(420px, 60dvh); overflow-y: auto; }
+.bellEmpty { padding: 24px 12px; text-align: center; color: var(--text-muted); font-size: 13px; }
+.bellItem { width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px; background: none; border: 0; text-align: left; font: inherit; color: var(--text-muted); cursor: pointer; }
+.bellItem:hover { background: var(--surface-3, var(--surface)); }
+.bellUnread { color: var(--text); background: rgba(124, 92, 240, .08); }
+.bellText { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.bellTitle { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bellUnread .bellTitle { font-weight: 600; }
+.bellTitle small { font-weight: 400; color: var(--text-muted); }
+.bellMeta { font-size: 11.5px; color: var(--text-faint); }
+.bellAll { display: block; text-align: center; padding: 11px; border-top: 1px solid var(--line); font-size: 13px; color: var(--text); text-decoration: none; }
+.bellAll:hover { background: var(--surface); }
+.bellQuiet { color: var(--text-muted); }
+.bellQuiet:hover { color: var(--danger-text); }
+
+/* Árvore: grupos Projetos/Equipes recolhíveis, ícone de equipe */
+.groupRow { padding-right: 4px; }
+.groupLink { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; color: inherit; text-decoration: none; }
+.teamIc { width: 16px; height: 16px; border-radius: 5px; display: grid; place-items: center; background: var(--surface-2); color: var(--text-muted); flex: none; }
+.av { position: relative; overflow: hidden; }
+.avImg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }

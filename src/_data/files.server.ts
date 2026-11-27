@@ -54,6 +54,7 @@ export async function cleanupFiles(now = new Date()) {
     join workspace_settings s on s.workspace_id = m.workspace_id
     where a.storage_path is not null
       and a.created_at < ${now}::timestamptz - make_interval(hours => s.file_retention_hours)
+      and m.pinned_at is null -- arquivo de mensagem fixada fica enquanto ela estiver fixada
     limit 5000`;
   if (due.length) {
     await removeObjects(due.map((d) => d.storage_path));

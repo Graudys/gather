@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import { Avatar } from "@/_components/chat/Avatar";
+import { PhotoCropper } from "@/_components/photos/PhotoCropper";
+import { removeMyPhoto, setMyPhoto } from "@/_data/photos.actions";
+import { photoVersion } from "@/lib/images";
 import Link from "next/link";
 import { Field } from "@/_components/ui/Field";
 import { Button } from "@/_components/ui/Button";
 import { Alert } from "@/_components/ui/Alert";
-import { colorFor, initialsOf } from "@/_components/chat/Avatar";
 import { changePassword, signOut } from "@/_data/auth.actions";
 import { updateProfile } from "@/_data/profile.actions";
 import { requireReadyUser } from "@/_lib/auth/dal";
@@ -40,7 +43,7 @@ export default async function Perfil({ searchParams }: PageProps<"/app/perfil">)
   const tab = sp.aba === "senha" || sp.erro || sp.aviso === "senha-alterada" ? "senha" : "perfil";
   const user = await db.user.findUniqueOrThrow({
     where: { id: sess.id },
-    select: { id: true, name: true, email: true, username: true, bio: true, timezone: true, notifyPrefs: true, createdAt: true },
+    select: { id: true, name: true, email: true, username: true, bio: true, timezone: true, notifyPrefs: true, createdAt: true, image: true },
   });
   const devices = (await db.$queryRaw<{ n: number }[]>`select count(*)::int as n from push_subscriptions where user_id = ${sess.id}::uuid`)[0]?.n ?? 0;
   const prefs = (user.notifyPrefs ?? {}) as Record<string, boolean>;
@@ -57,7 +60,8 @@ export default async function Perfil({ searchParams }: PageProps<"/app/perfil">)
       {tab === "perfil" ? (
         <form action={updateProfile} className={s.layout}>
           <aside className={s.card}>
-            <span className={s.avatar} style={{ background: colorFor(user.id) }}>{initialsOf(user.name)}</span>
+            <Avatar id={user.id} name={user.name} size={84} v={photoVersion(user.image) || "0"} />
+            <PhotoCropper label={user.image ? "Trocar foto" : "Colocar foto"} round save={setMyPhoto} remove={user.image ? removeMyPhoto : undefined} />
             <b className={s.name}>{user.name}</b>
             <span className={s.muted}>{user.username ? `@${user.username}` : user.email}</span>
             <span className={s.faint}>No Gather desde {user.createdAt.toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "America/Sao_Paulo" })}</span>
@@ -89,9 +93,10 @@ export default async function Perfil({ searchParams }: PageProps<"/app/perfil">)
             <section className={s.card2} id="avisos">
               <h2>Notificações</h2>
               <p className={s.muted}>O que aparece no sino.</p>
-              <label className={s.pref}><input type="checkbox" name="mencoes" defaultChecked={on("mencoes")} /><span><b>Menções e respostas</b><small>Mensagens diretas e respostas nas suas conversas</small></span></label>
-              <label className={s.pref}><input type="checkbox" name="tarefas" defaultChecked={on("tarefas")} /><span><b>Tarefas atribuídas a mim</b><small>Quando te colocam numa tarefa ou comentam nela</small></span></label>
-              <label className={s.pref}><input type="checkbox" name="reunioes" defaultChecked={on("reunioes")} /><span><b>Lembretes de reunião</b><small>Convites e lembretes de eventos</small></span></label>
+              <label className={s.pref}><input type="checkbox" name="mencoes" defaultChecked={on("mencoes")} /><span><b>Menções e respostas</b><small>Mensagens diretas, @menções e respostas nas suas conversas</small></span></label>
+              <label className={s.pref}><input type="checkbox" name="canais" defaultChecked={on("canais")} /><span><b>Mensagens nos canais</b><small>Canais que você abriu ou dos quais participa (juntas num aviso por canal)</small></span></label>
+              <label className={s.pref}><input type="checkbox" name="tarefas" defaultChecked={on("tarefas")} /><span><b>Tarefas</b><small>Quando te colocam numa tarefa, comentam, ela muda de coluna, é concluída ou o prazo chega</small></span></label>
+              <label className={s.pref}><input type="checkbox" name="reunioes" defaultChecked={on("reunioes")} /><span><b>Reuniões e eventos</b><small>Convites, lembretes e quando uma reunião sua começa</small></span></label>
             </section>
             <div className={s.actions}><Button>Salvar alterações</Button></div>
           </div>

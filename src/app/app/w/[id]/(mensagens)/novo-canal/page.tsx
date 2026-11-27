@@ -1,4 +1,6 @@
 import { Icon } from "@/_components/ui/Icon";
+import { CHAT_ICONS } from "@/lib/chat-icons";
+import c from "@/_styles/chat/Chat.module.css";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createChannel } from "@/_data/chat.actions";
@@ -34,6 +36,15 @@ export default async function NovoCanal({ params, searchParams }: PageProps<"/ap
           Descrição (opcional)
           <textarea name="description" maxLength={200} className={p.textarea} placeholder="Sobre o que se fala aqui" />
         </label>
+        <fieldset className={c.iconField}>
+          <legend className={p.label}>Ícone (opcional)</legend>
+          <div className={c.iconRadios}>
+            <label title="Sem ícone (#)"><input type="radio" name="icon" value="" defaultChecked /><span><Icon name="hash" size={16} /></span></label>
+            {CHAT_ICONS.map((e) => (
+              <label key={e}><input type="radio" name="icon" value={e} /><span>{e}</span></label>
+            ))}
+          </div>
+        </fieldset>
         {personal ? (
           <>
             <input type="hidden" name="visibility" value="PRIVATE" />

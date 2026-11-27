@@ -27,8 +27,8 @@ export type AdminKpis = { pessoas: number; workspaces: number; pendentes: number
 
 export type ChatTarget = { kind: "channel"; id: string } | { kind: "dm"; id: string };
 
-export type SidebarChannel = { id: string; name: string; visibility: "PUBLIC" | "PRIVATE"; unread: number };
-export type SidebarConversation = { id: string; title: string; initials: string; kind: "DIRECT" | "GROUP"; unread: number };
+export type SidebarChannel = { id: string; name: string; visibility: "PUBLIC" | "PRIVATE"; icon: string | null; canManage: boolean; unread: number };
+export type SidebarConversation = { id: string; title: string; initials: string; kind: "DIRECT" | "GROUP"; icon: string | null; unread: number };
 
 export type WorkspaceShell = {
   workspace: { id: string; name: string; kind: WorkspaceKind };
@@ -52,6 +52,14 @@ export type ChatMessage = {
   replyCount: number;
   reactions: ReactionView[];
   files: FileView[];
+  note: { id: string; title: string; preview: string } | null; // anotação enviada (cartão)
+  meeting: { id: string; title: string; open: boolean; cancelled: boolean; minutes: number | null } | null; // cartão de reunião
+  task:
+    | { hidden: true }
+    | { hidden: false; id: string; projectId: string; projectName: string; title: string; priority: "LOW" | "MEDIUM" | "HIGH"; dueAt: string | null; done: boolean; column: string; who: string | null }
+    | null; // cartão de tarefa: estado atual; escondido para quem não vê o projeto
+  pinned: boolean; // fixada no topo do canal
+  canPin: boolean; // quem gerencia o canal, só mensagem principal
   canEdit: boolean;
   canDelete: boolean;
 };
@@ -64,9 +72,12 @@ export type ChatView = {
   title: string;
   description: string | null;
   visibility?: "PUBLIC" | "PRIVATE";
-  members: { id: string; name: string }[];
+  icon: string | null;
+  canEditIcon: boolean; // canal: quem gerencia; grupo: qualquer membro; conversa direta: ninguém
+  members: { id: string; name: string; handle: string }[]; // handle = @apelido para menções
   canManage: boolean; // renomear/apagar canal, adicionar pessoas no privado
   messages: ChatMessage[]; // mais antigas primeiro
+  pinned: ChatMessage[]; // fixadas no topo (canal), mais recentes primeiro
   hasMore: boolean;
   cutoff: string; // mensagens antes disso já foram apagadas pela retenção
   thread: { parent: ChatMessage; replies: ChatMessage[] } | null;
@@ -110,8 +121,9 @@ export type TaskCard = {
 };
 
 export type BoardView = {
-  project: { id: string; name: string; description: string | null; status: ProjectStatus; startDate: string | null; dueDate: string | null; team: { id: string; name: string }; channelId: string | null };
+  project: { id: string; name: string; description: string | null; status: ProjectStatus; isFixed: boolean; startDate: string | null; dueDate: string | null; team: { id: string; name: string }; channelId: string | null };
   canManage: boolean;
+  canSeeInsights: boolean; // painel de desempenho: só dono e admin do workspace
   statuses: { id: string; name: string; isCompleted: boolean }[];
   tasks: TaskCard[];
   people: Person[]; // quem pode ser responsável

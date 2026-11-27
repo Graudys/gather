@@ -60,6 +60,39 @@ time. A senha aparece uma vez só, com uma mensagem pronta para mandar.
    `https://SEU-APP.vercel.app/api/livekit/webhook` (deixa a contagem de minutos
    certa mesmo se alguém fechar o navegador).
 
+## Notas, prazos e ícones
+
+- **Notas** (só no espaço pessoal): cadernos como canais de anotação; "Minha vida" é fixo.
+  Prazo de 1, 2, 3 ou 5 anos desde a última edição. 30 dias antes chega o aviso; nada é
+  apagado sem a pessoa digitar APAGAR. Baixar em Markdown: `/api/notas/exportar`.
+- **Prazos de tarefas**: cartões mostram "Atrasada" e "Vence hoje/amanhã"; avisos no sino e no aparelho
+  (rotina diária e quando a pessoa abre o app).
+- **Ícones** de canais e grupos: lista fechada de emojis em `src/lib/chat-icons.ts`.
+- Depois de atualizar: `npx prisma migrate dev --name melhorias`.
+
+## Lembretes na hora certa (pg_cron do Supabase)
+
+A Vercel grátis só roda rotina uma vez por dia. Para lembrete de evento sair no minuto certo,
+o Supabase chama `/api/cron/minuto` a cada minuto (com o mesmo `CRON_SECRET`).
+
+1. Supabase › Database › Extensions: ligue `pg_cron` e `pg_net`.
+2. Supabase › Vault (Integrations › Vault): **Add new secret**, nome `gather_cron_secret`,
+   valor = o mesmo `CRON_SECRET` da Vercel. (Pela tela, não pelo SQL: assim o segredo não fica no histórico.)
+3. SQL Editor (troque a URL pelo endereço do seu app):
+
+```sql
+select cron.schedule('gather-lembretes', '* * * * *', $$
+  select net.http_get(
+    url := 'https://SEU-APP.vercel.app/api/cron/minuto',
+    headers := jsonb_build_object('Authorization', 'Bearer ' ||
+      (select decrypted_secret from vault.decrypted_secrets where name = 'gather_cron_secret'))
+  );
+$$);
+```
+
+Para conferir: `select * from cron.job_run_details order by start_time desc limit 5;`
+Para parar: `select cron.unschedule('gather-lembretes');`
+
 ## App instalável e notificações (PWA)
 
 1. `npx prisma migrate dev --name push` (cria a tabela `push_subscriptions`).

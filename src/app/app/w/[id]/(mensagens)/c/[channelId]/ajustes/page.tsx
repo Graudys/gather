@@ -8,7 +8,10 @@ import { Field } from "@/_components/ui/Field";
 import { Button } from "@/_components/ui/Button";
 import { Avatar } from "@/_components/chat/Avatar";
 import { id as Id } from "@/lib/validation";
+import { CHAT_ICONS } from "@/lib/chat-icons";
+import { ChannelMark, ChannelName } from "@/_components/chat/ChannelLabel";
 import p from "@/_styles/chat/Panel.module.css";
+import c from "@/_styles/chat/Chat.module.css";
 
 export const metadata: Metadata = { title: "Ajustes do canal" };
 
@@ -31,18 +34,27 @@ export default async function AjustesCanal({ params }: PageProps<"/app/w/[id]/c/
     <div className={p.page}>
       <div className={p.narrow}>
         <Link href={back} className={p.note}><Icon name="back" size={14} /> Voltar para #{view.title}</Link>
-        <h1 className={p.title}><Icon name={isPrivate ? "lock" : "hash"} size={22} /> {view.title}</h1>
+        <h1 className={p.title}><ChannelMark isPrivate={isPrivate} size={22} /> <ChannelName icon={view.icon} name={view.title} /></h1>
       </div>
 
       {view.canManage && (
         <form action={updateChannel} className={`${p.card} ${p.narrow}`}>
           {hidden}
-          <b className={p.cardTitle}>Nome e descrição</b>
+          <b className={p.cardTitle}>Nome, ícone e descrição</b>
           <Field label="Nome" name="name" defaultValue={view.title} required maxLength={60} />
           <label className={p.label}>
             Descrição
             <textarea name="description" defaultValue={view.description ?? ""} maxLength={200} className={p.textarea} />
           </label>
+          <fieldset className={c.iconField}>
+            <legend className={p.label}>Ícone</legend>
+            <div className={c.iconRadios}>
+              <label title="Sem ícone (#)"><input type="radio" name="icon" value="" defaultChecked={!view.icon} /><span><Icon name={isPrivate ? "lock" : "hash"} size={16} /></span></label>
+              {CHAT_ICONS.map((e) => (
+                <label key={e}><input type="radio" name="icon" value={e} defaultChecked={view.icon === e} /><span>{e}</span></label>
+              ))}
+            </div>
+          </fieldset>
           <div className={p.actions}><Button>Salvar</Button></div>
         </form>
       )}

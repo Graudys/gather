@@ -1,4 +1,6 @@
 import "server-only";
+import { photoVersion } from "@/lib/images";
+import { ensureRoutineProject } from "@/_data/workspaces.server";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { db } from "@/_lib/db/prisma";
@@ -9,9 +11,9 @@ import { unreadCount } from "@/_data/notifications";
 export const LAST_WS_COOKIE = "gather.ws";
 
 export type AppShellData = {
-  me: { id: string; name: string; email: string; role: "admin" | "user" };
-  workspaces: { id: string; name: string; kind: "PERSONAL" | "TEAM"; role: "OWNER" | "ADMIN" | "MEMBER"; people: number }[];
-  current: { id: string; name: string; kind: "PERSONAL" | "TEAM"; role: "OWNER" | "ADMIN" | "MEMBER"; projects: { id: string; name: string }[]; teams: { id: string; name: string }[] } | null;
+  me: { id: string; name: string; email: string; role: "admin" | "user"; photoV: string };
+  workspaces: { id: string; name: string; kind: "PERSONAL" | "TEAM"; role: "OWNER" | "ADMIN" | "MEMBER"; people: number; icon: string | null; photoV: string }[];
+  current: { id: string; name: string; kind: "PERSONAL" | "TEAM"; role: "OWNER" | "ADMIN" | "MEMBER"; routine: { id: string; name: string } | null; projects: { id: string; name: string }[]; teams: { id: string; name: string }[] } | null;
   createWs: { max: number; canCreate: boolean; months: number[]; hours: number[] };
   unread: number; // avisos no sino
 };
@@ -42,12 +44,12 @@ export const getAppShell = cache(async (workspaceId: string | null): Promise<App
     db.workspaceMember.findMany({
       where: { userId: user.id },
       orderBy: { joinedAt: "asc" },
-      select: { role: true, workspace: { select: { id: true, name: true, kind: true, _count: { select: { members: true } } } } },
+      select: { role: true, workspace: { select: { id: true, name: true, kind: true, icon: true, imagePath: true, _count: { select: { members: true } } } } },
     }),
     unreadCount(),
     wsId
       ? db.project.findMany({
-          where: { status: { in: ["ACTIVE", "PAUSED"] }, team: { workspaceId: wsId, ...teamVisibleTo(user.id) } },
+          where: { isFixed: false, status: { in: ["ACTIVE", "PAUSED"] }, team: { workspaceId: wsId, ...teamVisibleTo(user.id) } },
           orderBy: { updatedAt: "desc" },
           take: 6,
           select: { id: true, name: true },
@@ -63,12 +65,18 @@ export const getAppShell = cache(async (workspaceId: string | null): Promise<App
       : Promise.resolve([]),
     db.platformConfig.findUnique({ where: { id: 1 }, select: { maxOwnedTeamWorkspaces: true, messageRetentionOptions: true, fileRetentionOptions: true } }),
   ]);
-  const workspaces = rows.map((r) => ({ id: r.workspace.id, name: r.workspace.name, kind: r.workspace.kind, role: r.role, people: r.workspace._count.members }));
+  const workspaces = rows.map((r) => ({
+    id: r.workspace.id, name: r.workspace.name, kind: r.workspace.kind, role: r.role, people: r.workspace._count.members,
+    icon: r.workspace.icon, photoV: photoVersion(r.workspace.imagePath),
+  }));
+  const meRow = await db.user.findUnique({ where: { id: user.id }, select: { image: true } });
   const cur = workspaces.find((w) => w.id === wsId) ?? null;
+  // Espaço pessoal: projeto fixo "Minha rotina" no topo da árvore (cria se faltar).
+  const routine = cur?.kind === "PERSONAL" && cur.role === "OWNER" ? await ensureRoutineProject(cur.id, user.id) : null;
   return {
-    me: { id: user.id, name: user.name, email: user.email, role: user.role },
+    me: { id: user.id, name: user.name, email: user.email, role: user.role, photoV: photoVersion(meRow?.image) },
     workspaces,
-    current: cur ? { id: cur.id, name: cur.name, kind: cur.kind, role: cur.role, projects, teams } : null,
+    current: cur ? { id: cur.id, name: cur.name, kind: cur.kind, role: cur.role, routine, projects, teams } : null,
     unread,
     createWs: {
       max: cfg?.maxOwnedTeamWorkspaces ?? 3,
