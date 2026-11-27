@@ -105,3 +105,48 @@ describe("criar tarefa da mensagem com prioridade e prazo", () => {
     expect(bad).toEqual({ ok: false, error: "dados" });
   });
 });
+
+describe("tarefa urgente no canal", () => {
+  it("marca os responsáveis com @, avisa no sino e sobe a prioridade", async () => {
+    as(ana);
+    await db.user.update({ where: { id: bia }, data: { username: `bia${bia.slice(0, 4)}` } });
+    const st = await db.taskStatus.findFirstOrThrow({ where: { projectId: projPub, position: 0 } });
+    const t = await db.task.create({ data: { projectId: projPub, statusId: st.id, title: "Corrigir login", position: "b0", createdById: ana, priority: "LOW", assignees: { create: [{ userId: bia }, { userId: ana }] } } });
+    const r = await sendTaskToChannel({ workspaceId: ws, taskId: t.id, channelId: geral, callAssignees: true, urgent: true });
+    expect(r).toMatchObject({ ok: true, called: 1 }); // quem envia não se avisa
+    expect((await db.task.findUniqueOrThrow({ where: { id: t.id } })).priority).toBe("HIGH");
+    const msg = await db.message.findFirstOrThrow({ where: { taskId: t.id } });
+    expect(msg.content).toBe(`@bia${bia.slice(0, 4)} Tarefa urgente, preciso de ajuda aqui.`);
+    const n = await db.notification.findFirstOrThrow({ where: { userId: bia, type: "mention" }, orderBy: { createdAt: "desc" } });
+    expect(n.title).toContain("tarefa urgente");
+    expect(n.body).toBe("Corrigir login");
+  });
+
+  it("canal privado: só avisa responsável que é do canal", async () => {
+    as(ana);
+    const priv = await db.channel.create({ data: { workspaceId: ws, name: "so-ana", visibility: "PRIVATE", createdById: ana, members: { create: { userId: ana } } } });
+    const st = await db.taskStatus.findFirstOrThrow({ where: { projectId: projPub, position: 0 } });
+    const t = await db.task.create({ data: { projectId: projPub, statusId: st.id, title: "Só pra Ana", position: "c0", createdById: ana, assignees: { create: [{ userId: bia }] } } });
+    const r = await sendTaskToChannel({ workspaceId: ws, taskId: t.id, channelId: priv.id, callAssignees: true });
+    expect(r).toMatchObject({ ok: true, called: 0 });
+    expect((await db.message.findFirstOrThrow({ where: { taskId: t.id } })).content).toBe("Compartilhei uma tarefa.");
+  });
+});
+
+describe("@ digitado no Enviar pro canal", () => {
+  it("lista quem vê o canal, avisa quem foi marcado e não repete o @ do responsável", async () => {
+    as(ana);
+    const handle = `bia${bia.slice(0, 4)}`;
+    const people = await (await import("@/_data/chat-tasks.actions")).listChannelPeople({ workspaceId: ws, channelId: geral });
+    expect(people.map((p) => p.handle)).toContain(handle);
+    const st = await db.taskStatus.findFirstOrThrow({ where: { projectId: projPub, position: 0 } });
+    const t = await db.task.create({ data: { projectId: projPub, statusId: st.id, title: "Ajustar menu", position: "d0", createdById: ana, assignees: { create: [{ userId: bia }] } } });
+    const before = await db.notification.count({ where: { userId: bia } });
+    const r = await sendTaskToChannel({ workspaceId: ws, taskId: t.id, channelId: geral, text: `@${handle} consegue pegar essa?`, callAssignees: true });
+    expect(r).toMatchObject({ ok: true, called: 1 });
+    expect((await db.message.findFirstOrThrow({ where: { taskId: t.id } })).content).toBe(`@${handle} consegue pegar essa?`);
+    expect(await db.notification.count({ where: { userId: bia } })).toBeGreaterThanOrEqual(before); // aviso agrupado ou novo
+    const n = await db.notification.findFirstOrThrow({ where: { userId: bia, type: "mention" }, orderBy: { createdAt: "desc" } });
+    expect(n.body).toBe("Ajustar menu");
+  });
+});

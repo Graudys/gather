@@ -193,3 +193,40 @@ a.card:hover { border-color: var(--accent-1); background: var(--surface-2); }
 .tfBox input[type="date"] {
   color-scheme: dark;
 }
+
+/* Opções com caixinha (avisar responsáveis, urgente) */
+.tfBox label.tfCheck {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--text-menu, #d6d6df);
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+.tfBox label.tfCheck input {
+  margin-top: 2px;
+  padding: 0;
+}
+
+/* Campo com @ fora do chat (ex.: Enviar pro canal): lista abre para baixo */
+.mentionWrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.mentionDown {
+  top: calc(100% + 6px);
+  bottom: auto;
+  left: 0;
+}
+.tfBox textarea {
+  background: var(--bg-input, #0f0f13);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  padding: 9px 12px;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  resize: vertical;
+  min-height: 44px;
+}

@@ -6,6 +6,8 @@ import { requireChannel, requireMessage } from "@/_data/chat.access";
 import { requireProject, requireTask, teamVisibleTo } from "@/_data/projects.access";
 import { getWorkspaceShell } from "@/_data/chat";
 import { hit } from "@/_lib/server/rate-limit";
+import { notify } from "@/_lib/server/notify";
+import { extractHandles, handleOf } from "@/lib/mentions";
 import { positionBetween } from "@/lib/position";
 import { id as Id } from "@/lib/validation";
 
@@ -87,18 +89,60 @@ export async function createTaskFromMessage(input: unknown): Promise<{ ok: true;
   return { ok: true, href: `/app/w/${workspaceId}/p/${proj.project.id}?tarefa=${task.id}` };
 }
 
-const ToChannel = z.object({ workspaceId: Id, taskId: Id, channelId: Id, text: z.string().trim().max(500).optional() });
+const ToChannel = z.object({
+  workspaceId: Id,
+  taskId: Id,
+  channelId: Id,
+  text: z.string().trim().max(500).optional(),
+  // Marca os responsáveis com @ na mensagem e manda aviso (sino e celular)
+  callAssignees: z.boolean().default(false),
+  // Sobe a prioridade da tarefa para Alta antes de enviar
+  urgent: z.boolean().default(false),
+});
 
-export async function sendTaskToChannel(input: unknown): Promise<{ ok: true; href: string } | { ok: false; error: string }> {
+export async function sendTaskToChannel(input: unknown): Promise<{ ok: true; href: string; called: number } | { ok: false; error: string }> {
   const p = ToChannel.safeParse(input);
   if (!p.success) return { ok: false, error: "dados" };
-  const { workspaceId, taskId, channelId, text } = p.data;
+  const { workspaceId, taskId, channelId, text, callAssignees, urgent } = p.data;
   const ctx = await requireTask(workspaceId, taskId);
   const ch = await requireChannel(workspaceId, channelId);
   if (!(await hit("chatMessage", ctx.user.id))) return { ok: false, error: "muitas" };
-  await db.message.create({ data: { workspaceId, channelId: ch.channel.id, senderId: ctx.user.id, taskId, content: text || "Compartilhei uma tarefa." } });
+
+  if (urgent) {
+    await db.task.update({ where: { id: taskId }, data: { priority: "HIGH" } });
+    await db.activityEvent.create({ data: { workspaceId, actorId: ctx.user.id, projectId: ctx.project.id, eventType: "task_edited", entityType: "task", entityId: taskId, metadata: { field: "a prioridade" } } });
+  }
+
+  // Quem enxerga o canal: público = todo o workspace; privado = só quem é do canal.
+  const audience = await channelPeople(workspaceId, ch.channel.id, ch.channel.visibility);
+  const byHandle = new Map(audience.map((u) => [handleOf(u), u]));
+
+  // @ digitados na mensagem (só valem para quem vê o canal)
+  const typed = extractHandles(text ?? "").map((h) => byHandle.get(h)).filter((u): u is NonNullable<typeof u> => Boolean(u));
+  // Responsáveis da tarefa, se pedido
+  let assignees: typeof audience = [];
+  if (callAssignees) {
+    const ids = new Set((await db.taskAssignee.findMany({ where: { taskId }, select: { userId: true } })).map((a) => a.userId));
+    assignees = audience.filter((u) => ids.has(u.id));
+  }
+  const called = [...new Map([...assignees, ...typed].filter((u) => u.id !== ctx.user.id).map((u) => [u.id, u])).values()];
+
+  // O @ dos responsáveis entra na frente, sem repetir quem já foi marcado no texto
+  const already = new Set(typed.map((u) => u.id));
+  const tags = assignees.filter((u) => u.id !== ctx.user.id && !already.has(u.id)).map((u) => `@${handleOf(u)}`).join(" ");
+  const body = text || (urgent ? "Tarefa urgente, preciso de ajuda aqui." : "Compartilhei uma tarefa.");
+  await db.message.create({ data: { workspaceId, channelId: ch.channel.id, senderId: ctx.user.id, taskId, content: tags ? `${tags} ${body}` : body } });
+
+  const href = `/app/w/${workspaceId}/c/${ch.channel.id}`;
+  if (called.length) {
+    await notify(called.map((u) => u.id), {
+      workspaceId, type: "mention",
+      title: urgent ? `${ctx.user.name} te chamou numa tarefa urgente` : `${ctx.user.name} te chamou numa tarefa`,
+      body: ctx.task.title, href,
+    });
+  }
   refresh(workspaceId);
-  return { ok: true, href: `/app/w/${workspaceId}/c/${ch.channel.id}` };
+  return { ok: true, href, called: called.length };
 }
 
 /** Canais onde a pessoa pode mandar a tarefa: os mesmos da barra lateral dela. */
@@ -107,4 +151,20 @@ export async function listChannelsForTask(input: { workspaceId: unknown }) {
   if (!p.success) return [];
   const shell = await getWorkspaceShell(p.data);
   return shell.channels.map((c) => ({ id: c.id, name: c.name, icon: c.icon, visibility: c.visibility }));
+}
+
+async function channelPeople(workspaceId: string, channelId: string, visibility: string) {
+  const rows = visibility === "PRIVATE"
+    ? await db.channelMember.findMany({ where: { channelId }, select: { user: { select: { id: true, name: true, username: true } } } })
+    : await db.workspaceMember.findMany({ where: { workspaceId }, select: { user: { select: { id: true, name: true, username: true } } } });
+  return rows.map((r) => r.user);
+}
+
+/** Pessoas do canal para a lista do @ no "Enviar pro canal". */
+export async function listChannelPeople(input: { workspaceId: unknown; channelId: unknown }) {
+  const p = z.object({ workspaceId: Id, channelId: Id }).safeParse(input);
+  if (!p.success) return [];
+  const ch = await requireChannel(p.data.workspaceId, p.data.channelId);
+  const people = await channelPeople(p.data.workspaceId, ch.channel.id, ch.channel.visibility);
+  return people.map((u) => ({ id: u.id, name: u.name, handle: handleOf(u) }));
 }

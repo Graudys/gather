@@ -37,7 +37,7 @@ export function TaskPanel({ task, board, workspaceId, closeHref }: { task: TaskD
         <Link href={closeHref} scroll={false} className={s.close} aria-label="Fechar tarefa"><Icon name="x" size={18} /></Link>
       </div>
       <div className={s.panelBody}>
-        {sending && <SendTaskToChannel key={task.id} workspaceId={workspaceId} taskId={task.id} onClose={() => setSending(false)} />}
+        {sending && <SendTaskToChannel key={task.id} workspaceId={workspaceId} taskId={task.id} onClose={() => setSending(false)} assignees={task.assignees} high={task.priority === "HIGH"} />}
         <textarea
           key={`t-${task.title}`}
           className={s.titleInput}
