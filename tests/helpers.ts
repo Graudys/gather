@@ -28,7 +28,7 @@ export class NotFound extends Error {
 vi.mock("next/headers", () => ({ headers: async () => new Headers(), cookies: async () => ({ get: () => undefined }) }));
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 // after(): roda na hora (nos testes não há resposta para esperar).
-vi.mock("next/server", () => ({ after: (fn: () => unknown) => void fn() }));
+vi.mock("next/server", async (orig) => ({ ...(await orig<typeof import("next/server")>()), after: (fn: () => unknown) => void fn() }));
 vi.mock("next/navigation", () => ({
   redirect: (to: string) => { throw new Redirect(to); },
   notFound: () => { throw new NotFound(); },

@@ -33,3 +33,6 @@
   .mrow > span:nth-child(2) { flex-basis: calc(100% - 52px); }
   .mrow > form:first-of-type { margin-left: 52px; }
 }
+
+/* Cards da aba Geral com espaço entre eles */
+.stack { display: flex; flex-direction: column; gap: 16px; }

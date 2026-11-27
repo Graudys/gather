@@ -1,8 +1,10 @@
 import { Icon } from "@/_components/ui/Icon";
+import { PinnedBar } from "@/_components/chat/PinnedBar";
 import Link from "next/link";
 import type { ChatView } from "@/types/domain";
 import { MessageList, LoadMore } from "@/_components/chat/MessageList";
 import { Composer } from "@/_components/chat/Composer";
+import { ChannelMark, ChannelName, ChatGlyph } from "@/_components/chat/ChannelLabel";
 import s from "@/_styles/chat/Chat.module.css";
 
 const shortDate = (iso: string) =>
@@ -28,11 +30,21 @@ export function ChatPane({ view, workspaceId, base, limit, months, fileHours = 2
       <section className={s.chat} aria-label={view.title}>
         <header className={s.head}>
           <h1 className={s.title}>
-            {isChannel && <span className={s.titleHash}><Icon name={view.visibility === "PRIVATE" ? "lock" : "hash"} size={18} /></span>}
-            {view.title}
+            {isChannel ? (
+              <>
+                <span className={s.titleHash}><ChannelMark isPrivate={view.visibility === "PRIVATE"} size={18} /></span>
+                <ChannelName icon={view.icon} name={view.title} />
+              </>
+            ) : (
+              <>
+                <ChatGlyph icon={view.icon} size={18} />
+                {view.title}
+              </>
+            )}
           </h1>
           {view.description && <span className={s.desc}>{view.description}</span>}
           <div className={s.headRight}>
+            {isChannel && <PinnedBar items={view.pinned} workspaceId={workspaceId} />}
             <span className={`${s.chip} ${s.hideSm}`} title="Prazo das mensagens neste workspace">
               <Icon name="clock" size={13} /> Mensagens somem após {months} {months === 1 ? "mês" : "meses"}
             </span>
@@ -72,7 +84,7 @@ export function ChatPane({ view, workspaceId, base, limit, months, fileHours = 2
           )}
         </div>
 
-        <Composer workspaceId={workspaceId} target={target} placeholder={placeholder} fileHours={fileHours} where={view.target.kind === "channel" ? `Em # ${view.title}` : `Com ${view.title}`} />
+        <Composer workspaceId={workspaceId} target={target} people={view.members} placeholder={placeholder} fileHours={fileHours} where={view.target.kind === "channel" ? `Em # ${view.title}` : `Com ${view.title}`} />
       </section>
 
       {view.thread && (
@@ -94,7 +106,7 @@ export function ChatPane({ view, workspaceId, base, limit, months, fileHours = 2
             </div>
           </div>
           {!view.thread.parent.deleted && (
-            <Composer workspaceId={workspaceId} target={target} parentId={view.thread.parent.id} placeholder="Responder na thread" compact fileHours={fileHours} where="Na thread" />
+            <Composer workspaceId={workspaceId} target={target} people={view.members} parentId={view.thread.parent.id} placeholder="Responder na thread" compact fileHours={fileHours} where="Na thread" />
           )}
         </aside>
       )}

@@ -1,5 +1,6 @@
 "use server";
 import { redirect } from "next/navigation";
+import { isNoteMonths } from "@/lib/notes";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { filesOf } from "@/_data/files.server";
@@ -107,15 +108,18 @@ export async function updateWorkspace(form: FormData) {
     channelVisibility: z.enum(["PUBLIC", "PRIVATE"]).optional(),
     months: z.coerce.number().int().optional(),
     hours: z.coerce.number().int().optional(),
+    noteMonths: z.coerce.number().int().optional(),
   }).safeParse(Object.fromEntries(form));
   const wsRaw = String(form.get("workspaceId"));
   const aba = form.get("aba") === "retencao" ? "retencao" : "geral";
   if (!p.success) return back(wsRaw, `aba=${aba}&erro=dados`);
-  const { workspaceId, name, description, channelVisibility, months, hours } = p.data;
+  const { workspaceId, name, description, channelVisibility, months, hours, noteMonths } = p.data;
   const ctx = await requireMember(workspaceId, ["OWNER", "ADMIN"]);
+  // Prazo das notas: só no espaço pessoal e só entre as opções (mínimo 1 ano).
+  if (noteMonths !== undefined && (ctx.workspace.kind !== "PERSONAL" || !isNoteMonths(noteMonths))) return back(workspaceId, `aba=${aba}&erro=prazo`);
   const general = name !== undefined;
   const retention = months !== undefined || hours !== undefined;
-  if (!general && !retention) return back(workspaceId, `aba=${aba}&erro=dados`);
+  if (!general && !retention && noteMonths === undefined) return back(workspaceId, `aba=${aba}&erro=dados`);
 
   const before = await db.workspaceSettings.findUnique({ where: { workspaceId }, select: { messageRetentionMonths: true, fileRetentionHours: true } });
   const m = months ?? before?.messageRetentionMonths ?? 3;
@@ -132,7 +136,7 @@ export async function updateWorkspace(form: FormData) {
     db.workspaceSettings.upsert({
       where: { workspaceId },
       create: { workspaceId, messageRetentionMonths: m, fileRetentionHours: h, ...(channelVisibility ? { defaultChannelVisibility: channelVisibility } : {}) },
-      update: { ...(retention ? { messageRetentionMonths: m, fileRetentionHours: h } : {}), ...(channelVisibility ? { defaultChannelVisibility: channelVisibility } : {}) },
+      update: { ...(retention ? { messageRetentionMonths: m, fileRetentionHours: h } : {}), ...(noteMonths !== undefined ? { noteRetentionMonths: noteMonths } : {}), ...(channelVisibility ? { defaultChannelVisibility: channelVisibility } : {}) },
     }),
   ]);
   if (retention && before && (before.messageRetentionMonths !== m || before.fileRetentionHours !== h)) {

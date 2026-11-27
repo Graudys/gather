@@ -17,7 +17,7 @@ export async function requireChannel(workspaceId: string, channelId: string) {
   const channel = await db.channel.findFirst({
     where: { id: channelId, workspaceId },
     select: {
-      id: true, name: true, description: true, visibility: true, createdById: true,
+      id: true, name: true, description: true, visibility: true, icon: true, createdById: true,
       members: { where: { userId: ctx.user.id }, select: { role: true } },
     },
   });
@@ -33,7 +33,7 @@ export async function requireConversation(workspaceId: string, conversationId: s
   const ctx = await requireMember(workspaceId);
   const conv = await db.conversation.findFirst({
     where: { id: conversationId, workspaceId, members: { some: { userId: ctx.user.id } } },
-    select: { id: true, kind: true, members: { select: { user: { select: { id: true, name: true } } } } },
+    select: { id: true, kind: true, icon: true, members: { select: { user: { select: { id: true, name: true, username: true } } } } },
   });
   if (!conv) notFound();
   return { ...ctx, conversation: conv, wsAdmin: ctx.role === "OWNER" || ctx.role === "ADMIN" };

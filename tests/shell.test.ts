@@ -69,7 +69,7 @@ describe("casca, início e perfil", () => {
     expect(await to(updateProfile(form({ name: "Dona Nova", username: "dona.casca", bio: "oi", timezone: "America/Sao_Paulo", tarefas: "on" })))).toBe("/app/perfil?aviso=salvo");
     const u = await db.user.findUniqueOrThrow({ where: { id: dona } });
     expect(u.name).toBe("Dona Nova");
-    expect(u.notifyPrefs).toEqual({ mencoes: false, tarefas: true, reunioes: false });
+    expect(u.notifyPrefs).toEqual({ mencoes: false, canais: false, tarefas: true, reunioes: false });
     await notify([dona], { type: "dm", title: "x", href: "/app" });
     await notify([dona], { type: "task_assigned", title: "y", href: "/app" });
     const got = await db.notification.findMany({ where: { userId: dona } });

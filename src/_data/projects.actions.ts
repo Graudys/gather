@@ -31,6 +31,27 @@ async function logTask(workspaceId: string, actorId: string, projectId: string, 
   await db.activityEvent.create({ data: { workspaceId, actorId, projectId, eventType, entityType: "task", entityId: taskId, metadata } });
 }
 
+/**
+ * Aviso de tarefa concluída ou movida: para quem é responsável e quem criou,
+ * menos quem fez a mudança. Movida junta num aviso por tarefa enquanto não lido.
+ */
+async function notifyTaskChange(
+  ctx: { user: { id: string; name: string }; project: { id: string }; task: { id: string; title: string; createdById: string | null } },
+  workspaceId: string,
+  done: boolean,
+  column: string,
+) {
+  const assignees = await db.taskAssignee.findMany({ where: { taskId: ctx.task.id }, select: { userId: true } });
+  const to = [...assignees.map((a) => a.userId), ...(ctx.task.createdById ? [ctx.task.createdById] : [])].filter((u) => u !== ctx.user.id);
+  await notify(to, {
+    workspaceId,
+    type: done ? "task_done" : "task_moved",
+    key: done ? undefined : `task_moved:${ctx.task.id}`,
+    title: done ? `${ctx.user.name} concluiu: ${ctx.task.title}` : `${ctx.user.name} moveu “${ctx.task.title}” para ${column}`,
+    href: `/app/w/${workspaceId}/p/${ctx.project.id}?tarefa=${ctx.task.id}`,
+  });
+}
+
 // ── Equipes
 
 export async function createTeam(form: FormData) {
@@ -206,7 +227,8 @@ export async function updateProject(form: FormData) {
   if (p.data.startDate && p.data.dueDate && p.data.startDate > p.data.dueDate) return;
   await db.project.update({
     where: { id: ctx.project.id },
-    data: { name: p.data.name, description: p.data.description || null, status: p.data.status, startDate: toDate(p.data.startDate), dueDate: toDate(p.data.dueDate) },
+    // O projeto fixo ("Minha rotina") fica sempre ativo: arquivar faria ele sumir.
+    data: { name: p.data.name, description: p.data.description || null, status: ctx.project.isFixed ? "ACTIVE" : p.data.status, startDate: toDate(p.data.startDate), dueDate: toDate(p.data.dueDate) },
   });
   refresh(p.data.workspaceId);
 }
@@ -253,7 +275,7 @@ export async function deleteProject(form: FormData) {
   const p = ProjectRef.extend({ confirm: z.string() }).safeParse(Object.fromEntries(form));
   if (!p.success) return;
   const ctx = await requireProject(p.data.workspaceId, p.data.projectId);
-  if (!ctx.canManage || p.data.confirm.trim() !== ctx.project.name) return;
+  if (!ctx.canManage || ctx.project.isFixed || p.data.confirm.trim() !== ctx.project.name) return;
   const files = await filesOf({ projectId: ctx.project.id });
   // O canal do projeto vai junto: os arquivos dele também.
   const chat = await db.messageAttachment.findMany({ where: { message: { channel: { projectId: ctx.project.id } } }, select: { storagePath: true } });
@@ -296,7 +318,7 @@ async function insertTask(form: FormData) {
     data: {
       projectId: ctx.project.id, statusId: status.id, title: d.title, position: positionBetween(max, null),
       priority: d.priority ?? "MEDIUM", dueAt: toDate(d.dueAt), description: d.description || null,
-      createdById: ctx.user.id, completedAt: status.isCompleted ? new Date() : null,
+      createdById: ctx.user.id, completedAt: status.isCompleted ? new Date() : null, statusChangedAt: new Date(),
       assignees: { create: assignees.map((userId) => ({ userId })) },
       labelLinks: { create: labels.map((l) => ({ labelId: l.id })) },
     },
@@ -342,9 +364,10 @@ export async function toggleTaskDone(form: FormData) {
   const last = await db.task.findMany({ where: { statusId: target.id }, select: { position: true } });
   await db.task.update({
     where: { id: ctx.task.id },
-    data: { statusId: target.id, position: positionBetween(last.map((t) => t.position).sort().at(-1) ?? null, null), completedAt: done ? null : new Date() },
+    data: { statusId: target.id, position: positionBetween(last.map((t) => t.position).sort().at(-1) ?? null, null), completedAt: done ? null : new Date(), statusChangedAt: new Date() },
   });
   await logTask(p.data.workspaceId, ctx.user.id, ctx.project.id, ctx.task.id, "task_moved", { to: target.name });
+  await notifyTaskChange(ctx, p.data.workspaceId, !done, target.name);
   refresh(p.data.workspaceId);
 }
 
@@ -392,9 +415,12 @@ export async function moveTask(form: FormData) {
   const moved = status.id !== ctx.task.statusId;
   await db.task.update({
     where: { id: ctx.task.id },
-    data: { statusId: status.id, position: positionBetween(before, after), ...(moved ? { completedAt: status.isCompleted ? new Date() : null } : {}) },
+    data: { statusId: status.id, position: positionBetween(before, after), ...(moved ? { completedAt: status.isCompleted ? new Date() : null, statusChangedAt: new Date() } : {}) },
   });
-  if (moved) await logTask(p.data.workspaceId, ctx.user.id, ctx.project.id, ctx.task.id, "task_moved", { to: status.name });
+  if (moved) {
+    await logTask(p.data.workspaceId, ctx.user.id, ctx.project.id, ctx.task.id, "task_moved", { to: status.name });
+    await notifyTaskChange(ctx, p.data.workspaceId, status.isCompleted, status.name);
+  }
   refresh(p.data.workspaceId);
 }
 

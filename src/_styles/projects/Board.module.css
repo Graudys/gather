@@ -48,20 +48,7 @@
 .khTools a { color: inherit; opacity: .7; display: inline-flex; padding: 2px; border-radius: 5px; }
 .khTools a:hover { opacity: 1; background: rgba(255, 255, 255, .08); }
 .k1 { background: #1f2339; color: #d3dbff; } .k2 { background: #172650; color: #c3d5ff; } .k3 { background: #3b2d12; color: #ffdb94; } .k4 { background: #12301f; color: #a2ecc2; }
-.cards { 
-  display: flex; 
-  flex-direction: column; 
-  overflow-y: auto; 
-  min-height: 30px; 
-}
-
-.noScroll{
-    scrollbar-width: none; 
-  -ms-overflow-style: none;
-}
-.noScroll::-webkit-scrollbar {
-  display: none;
-}
+.cards { display: flex; flex-direction: column; overflow-y: auto; min-height: 30px; }
 
 .card { display: block; background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 12px; padding: 12px; margin-top: 10px; text-decoration: none; color: inherit; cursor: grab; }
 .card:hover { border-color: var(--line-3); }
@@ -156,3 +143,10 @@
 @keyframes cardIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @keyframes slideIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
 @keyframes fade { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+/* Prazo do cartão: atrasada, vence hoje/amanhã, concluída */
+.dueChip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 3px 8px; border-radius: 6px; color: var(--text-muted); background: var(--surface-3, rgba(255,255,255,.04)); white-space: nowrap; }
+.dueChip b { font-weight: 600; }
+.dueLate { background: #4a1d22; color: #ff9aa0; }
+.dueSoon { background: #3a2a17; color: #ffb36b; }
+.dueDone { background: #16301f; color: #6fe3a1; }

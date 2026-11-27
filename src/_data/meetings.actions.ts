@@ -11,6 +11,7 @@ import { countInRoom, ensureRoom, joinToken, livekitConfig } from "@/_lib/server
 import { positionBetween } from "@/lib/position";
 import { id as Id } from "@/lib/validation";
 import { hit } from "@/_lib/server/rate-limit";
+import { notify } from "@/_lib/server/notify";
 
 const refresh = (ws: string) => revalidatePath(`/app/w/${ws}`, "layout");
 
@@ -73,6 +74,7 @@ export async function joinMeeting(workspaceId: string, meetingId: string): Promi
   if (m.status === "SCHEDULED") {
     hardEndAt = new Date(now.getTime() + m.maxDurationMin * 60_000);
     await db.meeting.update({ where: { id: m.id }, data: { status: "LIVE", startedAt: now, hardEndAt } });
+    await notifyMeetingStarted(workspaceId, m, ctx.user);
   }
   // Uma presença aberta por pessoa: reabrir (outra aba, recarregar) fecha a anterior.
   for (const o of open.filter((x) => x.userId === ctx.user.id)) await closeParticipant(o.id, now);
@@ -167,11 +169,37 @@ export async function createTaskFromMeeting(form: FormData) {
   const last = await db.task.findMany({ where: { statusId: status.id }, select: { position: true } });
   const max = last.map((t) => t.position).sort().at(-1) ?? null;
   const task = await db.task.create({
-    data: { projectId: proj.id, statusId: status.id, title: p.data.title, position: positionBetween(max, null), createdById: ctx.user.id, sourceMeetingId: ctx.meeting.id },
+    data: { projectId: proj.id, statusId: status.id, title: p.data.title, position: positionBetween(max, null), createdById: ctx.user.id, sourceMeetingId: ctx.meeting.id, statusChangedAt: new Date() },
     select: { id: true },
   });
   await db.activityEvent.create({
     data: { workspaceId: p.data.workspaceId, actorId: ctx.user.id, projectId: proj.id, eventType: "task_created", entityType: "task", entityId: task.id, metadata: { from: "meeting" } },
   });
   refresh(p.data.workspaceId);
+}
+
+/**
+ * "Reunião começou": quando a primeira pessoa entra na sala.
+ * Vai para os convidados do evento (menos quem recusou); sem evento, para a
+ * equipe ou o projeto da reunião; sem nada disso, para o workspace.
+ */
+async function notifyMeetingStarted(
+  workspaceId: string,
+  m: { id: string; title: string; calendarEventId: string | null; teamId: string | null; projectId: string | null },
+  by: { id: string; name: string },
+) {
+  let to: string[];
+  if (m.calendarEventId) {
+    to = (await db.eventParticipant.findMany({ where: { eventId: m.calendarEventId, response: { not: "DECLINED" } }, select: { userId: true } })).map((p) => p.userId);
+  } else if (m.projectId) {
+    to = (await db.projectMember.findMany({ where: { projectId: m.projectId }, select: { userId: true } })).map((p) => p.userId);
+  } else if (m.teamId) {
+    to = (await db.teamMember.findMany({ where: { teamId: m.teamId }, select: { userId: true } })).map((p) => p.userId);
+  } else {
+    to = (await db.workspaceMember.findMany({ where: { workspaceId }, select: { userId: true }, take: 200 })).map((p) => p.userId);
+  }
+  await notify(to.filter((u) => u !== by.id), {
+    workspaceId, type: "meeting_started", key: `meeting:${m.id}`,
+    title: `Começou: ${m.title}`, body: `${by.name} entrou na sala.`, href: `/app/w/${workspaceId}/reuniao/${m.id}`,
+  });
 }

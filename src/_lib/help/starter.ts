@@ -8,6 +8,8 @@ export const STARTER_CATEGORIES = [
   { slug: "projetos", name: "Projetos e tarefas", icon: "board", position: 2 },
   { slug: "agenda", name: "Agenda e reuniões", icon: "calendar", position: 3 },
   { slug: "conta", name: "Conta e acesso", icon: "user", position: 4 },
+  { slug: "notas", name: "Notas e espaço pessoal", icon: "notebook", position: 5 },
+  { slug: "app", name: "App e notificações", icon: "bell", position: 6 },
 ] as const;
 
 type Starter = { category: (typeof STARTER_CATEGORIES)[number]["slug"]; slug: string; title: string; summary: string; keywords: string[]; actionLabel?: string; actionPath?: string; body: string };
@@ -140,5 +142,256 @@ Se o saldo acabar, novas reuniões ficam bloqueadas até a renovação. O resto 
 2. Em **Membros**, digite o e-mail e clique em **Adicionar**.
 
 A pessoa precisa **já ter acesso ao Gather**. Se não tiver, peça ao admin do Gather para criar o acesso primeiro (em Admin › Pessoas).`,
+  },
+  // —— Novidades da v1 ——
+  {
+    category: "app", slug: "instalar-app", title: "Instalar o Gather como app",
+    summary: "Em Perfil › Aparelhos, clique em Instalar. O Gather abre em janela própria e recebe avisos mesmo fechado.",
+    keywords: ["instalar", "app", "aplicativo", "baixar app", "pwa", "tela inicial", "celular", "desinstalar"],
+    actionLabel: "Abrir perfil", actionPath: "/app/perfil",
+    body: `# Instalar o Gather como app
+
+1. Clique no **seu nome** e abra **Perfil**.
+2. Em **Neste aparelho**, clique em **Instalar**.
+
+- **Chrome ou Edge**: também dá pelo ícone de instalar na barra de endereço.
+- **iPhone (Safari)**: toque em Compartilhar › **Adicionar à Tela de Início**.
+
+O app abre em janela própria e funciona mesmo sem internet para ver o que já foi aberto.
+
+**Desinstalar**: no Windows, clique com o botão direito no ícone do Gather no menu Iniciar › Desinstalar. No Chrome, abra o app, menu ⋮ › Desinstalar.`,
+  },
+  {
+    category: "app", slug: "notificacoes-no-aparelho", title: "Receber notificações no aparelho",
+    summary: "Em Perfil › Neste aparelho, clique em Ligar e aceite o pedido do navegador. Os avisos chegam mesmo com o Gather fechado.",
+    keywords: ["notificação", "push", "aviso", "ligar notificações", "notificação windows", "não chega notificação", "desligar"],
+    actionLabel: "Abrir perfil", actionPath: "/app/perfil",
+    body: `# Receber notificações no aparelho
+
+1. Abra **Perfil** e vá em **Neste aparelho**.
+2. Em **Notificações no aparelho**, clique em **Ligar** e aceite o pedido do navegador.
+
+Cada aparelho liga separado. Para parar, clique em **Desligar**.
+
+Não chegou nada? Confira se o navegador ou o Windows não bloqueou as notificações do site.`,
+  },
+  {
+    category: "app", slug: "sino-de-notificacoes", title: "O sino de notificações",
+    summary: "O sino mostra menções, tarefas, prazos e reuniões. Clique num aviso para abrir; use Limpar lidas para esvaziar a lista.",
+    keywords: ["sino", "notificações", "avisos", "limpar lidas", "marcar como lida", "não lida"],
+    actionLabel: "Abrir notificações", actionPath: "/app/notificacoes",
+    body: `# O sino de notificações
+
+Clique no **sino** para ver os avisos: @menções, mensagens de canal, tarefas, prazos e reuniões.
+
+- Clicar num aviso abre o lugar dele e marca como lido.
+- **Limpar lidas** tira da lista o que você já viu.
+
+Para escolher o que chega, veja "Escolher quais avisos recebo".`,
+  },
+  {
+    category: "app", slug: "escolher-avisos", title: "Escolher quais avisos recebo",
+    summary: "Em Perfil › Notificações, marque o que quer receber: menções, mensagens nos canais, tarefas e reuniões.",
+    keywords: ["preferências", "escolher avisos", "parar notificação", "muita notificação", "silenciar", "canais"],
+    actionLabel: "Abrir perfil", actionPath: "/app/perfil",
+    body: `# Escolher quais avisos recebo
+
+Em **Perfil › Notificações**, marque ou desmarque:
+
+- **Menções e respostas**: mensagens diretas, @menções e respostas.
+- **Mensagens nos canais**: um aviso por canal, juntando as mensagens.
+- **Tarefas**: quando te colocam numa tarefa, comentam, ela muda de coluna, é concluída ou o prazo chega.
+- **Reuniões e eventos**: convites, lembretes e quando a reunião começa.
+
+Depois clique em **Salvar alterações**.`,
+  },
+  {
+    category: "chat", slug: "mencionar-alguem", title: "Mencionar alguém com @",
+    summary: "Digite @ na mensagem e escolha a pessoa na lista. Ela recebe um aviso no sino e no aparelho.",
+    keywords: ["marcar alguém", "marcar pessoa na mensagem", "menção", "mencionar", "@", "arroba", "marcar pessoa", "chamar atenção"],
+    body: `# Mencionar alguém com @
+
+1. Na mensagem, digite **@**.
+2. Comece o nome e escolha a pessoa na lista.
+
+A pessoa recebe um aviso no sino e, se ligou, no aparelho. Só dá para mencionar quem pode ver o canal.`,
+  },
+  {
+    category: "chat", slug: "editar-apagar-mensagem", title: "Editar ou apagar uma mensagem",
+    summary: "Passe o mouse na sua mensagem e use o lápis para editar ou a lixeira para apagar.",
+    keywords: ["editar mensagem", "apagar mensagem", "corrigir", "excluir mensagem", "errei"],
+    body: `# Editar ou apagar uma mensagem
+
+Passe o mouse sobre a **sua** mensagem. Na barrinha que aparece:
+
+- **Lápis**: edita o texto. A mensagem fica marcada como editada.
+- **Lixeira**: apaga. Se ela tinha uma nota enviada ou estava fixada, o cartão e o alfinete saem junto.`,
+  },
+  {
+    category: "chat", slug: "fixar-mensagem", title: "Fixar mensagem no topo do canal",
+    summary: "Passe o mouse na mensagem e clique no alfinete. Fixadas aparecem em “N fixadas” no topo e não somem pelo prazo.",
+    keywords: ["fixar", "fixada", "alfinete", "pin", "destacar", "guardar mensagem", "não sumir", "documentação"],
+    body: `# Fixar mensagem no topo do canal
+
+1. Passe o mouse sobre a mensagem e clique no **alfinete**.
+2. No topo do canal aparece **N fixadas**: clique para ver a lista.
+
+- Mensagem fixada **não some pelo prazo** do workspace, nem as respostas dela.
+- Até **30** fixadas por canal. Não dá para fixar resposta de thread nem mensagem direta.
+- Quem fixa: dono ou admin do workspace e quem gerencia o canal.
+- Para desafixar, clique no alfinete de novo ou use o botão na lista.
+
+Dica: um canal só para documentação, com as notas enviadas fixadas, vira uma biblioteca da equipe.`,
+  },
+  {
+    category: "chat", slug: "icone-do-canal", title: "Mudar o ícone e as configurações do canal",
+    summary: "Passe o mouse no canal na barra lateral e clique nos três pontinhos (⋯). Ali você troca o emoji e abre as configurações.",
+    keywords: ["mudar ícone", "trocar ícone", "ícone", "ícone do canal", "emoji", "três pontinhos", "configurações do canal", "cadeado", "canal privado", "bolinha"],
+    body: `# Mudar o ícone e as configurações do canal
+
+1. Passe o mouse sobre o canal na barra lateral.
+2. Clique nos **três pontinhos (⋯)**.
+3. Escolha um **emoji** ou abra as **configurações do canal**.
+
+Na lista, **#** é canal público e o **cadeado** é privado. Grupos também podem ter emoji.`,
+  },
+  {
+    category: "chat", slug: "ordem-dos-canais", title: "Mudar a ordem dos canais",
+    summary: "Dono ou admin arrasta o canal na barra lateral para cima ou para baixo. A ordem fica igual para todo mundo.",
+    keywords: ["ordem dos canais", "arrastar canal", "reorganizar", "mover canal", "organizar canais"],
+    body: `# Mudar a ordem dos canais
+
+Dono ou admin do workspace **arrasta** o canal na barra lateral até o lugar que quiser. Pelo teclado: Alt + seta para cima ou para baixo.
+
+A nova ordem vale **para todo mundo** do workspace.`,
+  },
+  {
+    category: "projetos", slug: "minhas-tarefas", title: "Minhas tarefas, prazos e atrasadas",
+    summary: "Em Tarefas você vê tudo que está com você em todos os projetos, em lista ou quadro: Atrasadas, Hoje, Esta semana, Depois e Sem prazo.",
+    keywords: ["minhas tarefas", "atrasada", "vence hoje", "prazo", "vencida", "tarefas atrasadas", "quadro", "lista"],
+    body: `# Minhas tarefas, prazos e atrasadas
+
+Abra **Tarefas** na barra lateral. Aparece tudo que está atribuído a você e ainda não foi concluído.
+
+- Veja em **Lista** ou **Quadro** (Atrasadas, Hoje, Esta semana, Depois, Sem prazo).
+- Filtre por **projeto** e **prioridade**.
+- Marque a caixinha para concluir.
+
+Nos cartões, **Vence hoje** e **Atrasada** aparecem em destaque, e o Gather manda um aviso quando o prazo chega.`,
+  },
+  {
+    category: "notas", slug: "minha-rotina", title: "O projeto Minha rotina",
+    summary: "No seu espaço pessoal existe o projeto fixo Minha rotina, para tarefas suas do dia a dia. Ele não pode ser apagado.",
+    keywords: ["minha rotina", "espaço pessoal", "projeto pessoal", "tarefas pessoais", "workspace pessoal"],
+    body: `# O projeto Minha rotina
+
+Todo espaço pessoal já vem com o projeto **Minha rotina**, para organizar o seu dia a dia com quadro, prazos e lembretes.
+
+Ele é fixo: não pode ser arquivado nem apagado.`,
+  },
+  {
+    category: "notas", slug: "notas-e-cadernos", title: "Notas e cadernos",
+    summary: "No espaço pessoal, abra Notas. Organize em cadernos; o caderno Anotações é fixo. Clique em Nova nota para começar.",
+    keywords: ["notas", "anotações", "caderno", "onenote", "nova nota", "criar caderno", "bloco de notas"],
+    body: `# Notas e cadernos
+
+As notas ficam no seu **espaço pessoal**, na aba **Notas**. Só você vê.
+
+- **Criar caderno**: separe por assunto, com nome e ícone.
+- **Anotações** é o caderno fixo: sempre existe e não pode ser apagado.
+- **Nova nota** cria uma página no caderno aberto. Salva sozinha.`,
+  },
+  {
+    category: "notas", slug: "editor-de-notas", title: "Formatar notas e colocar fotos",
+    summary: "O editor usa Markdown: barra de formatação, atalhos como Ctrl+B e Ctrl+K, e modos Escrever, Lado a lado e Prévia. Cole ou arraste fotos.",
+    keywords: ["colocar foto", "foto na nota", "imagem na nota", "markdown", "formatar", "negrito", "lista", "foto na nota", "imagem", "colar imagem", "prévia", "atalhos"],
+    body: `# Formatar notas e colocar fotos
+
+O editor usa **Markdown**:
+
+- **Barra de formatação**: títulos, negrito, listas, código, links e mais.
+- **Atalhos**: Ctrl+B negrito, Ctrl+I itálico, Ctrl+E código, Ctrl+K link.
+- Listas continuam sozinhas ao apertar Enter.
+- **Modos**: Escrever, Lado a lado (texto e prévia juntos) e Prévia.
+
+**Fotos**: cole (Ctrl+V), arraste para a nota ou use o botão de foto. Ficam guardadas de forma privada.`,
+  },
+  {
+    category: "notas", slug: "baixar-notas", title: "Baixar notas em .md",
+    summary: "Na aba Notas, use Baixar (.md) para as notas ou para o caderno inteiro. O arquivo abre em qualquer editor de texto, Obsidian ou Notion.",
+    keywords: ["exportar nota", "exportar notas", "baixar notas", "baixar minhas notas", "baixar", "exportar", "download nota", "md", "backup", "salvar no computador"],
+    body: `# Baixar notas em .md
+
+- As notas abertas: **Baixar estas notas (.md)**.
+- Um caderno inteiro: **Baixar este caderno (.md)**.
+
+O arquivo .md abre em qualquer editor de texto e pode ser importado no Obsidian ou no Notion.`,
+  },
+  {
+    category: "notas", slug: "prazo-das-notas", title: "Por quanto tempo as notas ficam guardadas",
+    summary: "Você escolhe de 1 a 5 anos. 30 dias antes de vencer o Gather avisa, e nada é apagado sem você digitar APAGAR.",
+    keywords: ["notas vão sumir", "nota some", "sumir", "prazo das notas", "notas somem", "vencer", "vencida", "retenção notas", "apagar nota", "guardar mais"],
+    body: `# Por quanto tempo as notas ficam guardadas
+
+Em **Configurações › Retenção e privacidade** do espaço pessoal, escolha de **1 a 5 anos**.
+
+- **30 dias antes** de uma nota vencer, chega um aviso.
+- Em **Ver e decidir**, para cada nota: baixar em .md, manter por mais tempo ou apagar.
+- O Gather **nunca apaga sozinho**. Para apagar é preciso digitar **APAGAR**.`,
+  },
+  {
+    category: "notas", slug: "enviar-nota", title: "Enviar uma nota para alguém ou para um canal",
+    summary: "Na nota, clique em Enviar e escolha a pessoa ou o canal. Vai um cartão só para leitura, sem criar cópia.",
+    keywords: ["mando nota", "nota pro canal", "enviar nota", "compartilhar nota", "mandar nota", "documentação", "cartão", "nota no canal"],
+    body: `# Enviar uma nota para alguém ou para um canal
+
+1. Abra a nota e clique em **Enviar**.
+2. Escolha **Enviar para a pessoa** ou **Enviar para o canal** e, se quiser, escreva uma mensagem.
+
+Chega um **cartão** com a nota como estava naquela hora. Quem recebe **só lê**, não edita.
+
+- Editar a nota depois **não muda** o cartão: para mandar a versão nova, envie de novo.
+- Apagar a nota original **não apaga** o cartão.
+- Apagar a mensagem tira o cartão.
+- Dica: fixe o cartão no canal para ele não sumir pelo prazo.`,
+  },
+  {
+    category: "conta", slug: "foto-e-icone", title: "Foto de perfil e ícone do workspace",
+    summary: "Troque sua foto em Perfil e o ícone do workspace em Configurações › Geral (letra, emoji ou foto). Dá para recortar a foto antes de salvar.",
+    keywords: ["foto", "foto de perfil", "avatar", "trocar foto", "ícone do workspace", "logo", "recortar"],
+    actionLabel: "Abrir perfil", actionPath: "/app/perfil",
+    body: `# Foto de perfil e ícone do workspace
+
+**Sua foto**: em **Perfil**, clique na foto, escolha a imagem e ajuste o recorte.
+
+**Ícone do workspace** (dono ou admin): em **Configurações › Geral**, escolha **letra**, **emoji** ou **foto**. A foto também tem recorte.
+
+Aceita JPG, PNG e WebP.`,
+  },
+  {
+    category: "agenda", slug: "lembrete-de-evento", title: "Lembretes de eventos e reuniões",
+    summary: "O Gather avisa antes do evento começar e quando a reunião abre, no sino e no aparelho se as notificações estiverem ligadas.",
+    keywords: ["lembrete", "aviso de evento", "reunião começou", "alarme", "esqueci reunião"],
+    body: `# Lembretes de eventos e reuniões
+
+- Na antecedência escolhida no evento (por exemplo, 15 min antes), chega um **lembrete** no sino.
+- Quando a reunião começa, quem foi convidado recebe **Reunião começou** com o atalho para entrar.
+
+Para receber mesmo com o Gather fechado, ligue as **notificações no aparelho** em Perfil.`,
+  },
+  {
+    category: "projetos", slug: "desempenho-do-projeto", title: "Painel de desempenho do projeto",
+    summary: "Dono e admin do workspace abrem a aba Desempenho no projeto: % concluído, entregas no prazo, atrasadas, ritmo e previsão de término.",
+    keywords: ["desempenho", "dashboard", "painel", "relatório", "produtividade", "previsão", "ritmo", "métricas", "csv"],
+    body: `# Painel de desempenho do projeto
+
+Só **dono e admin do workspace** veem. No projeto, clique em **Desempenho** (ao lado de Quadro e Lista).
+
+- **Números**: % concluído, entregues no prazo, atrasadas agora e tempo médio de cada tarefa.
+- **Progresso x escopo**: o que foi concluído e o total de tarefas por semana, com a previsão até o prazo.
+- **Criadas x concluídas**: se entra mais tarefa do que sai, o projeto não anda.
+- **Por pessoa**, **onde estão as tarefas** e **precisa de atenção** (atrasadas e paradas há mais de 5 dias).
+
+**Baixar CSV** gera uma planilha com uma linha por tarefa.`,
   },
 ];

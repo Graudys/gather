@@ -7,7 +7,9 @@
 .searchBox { display: flex; align-items: center; gap: 10px; margin-top: 20px; max-width: 560px; padding: 12px 14px; font-size: 16px; background: var(--bg-input); border: 1px solid var(--line-2); border-radius: 12px; color: var(--text-muted); }
 .searchBox:focus-within { border-color: var(--focus); }
 .searchBox input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--text); font: 400 16px var(--font); }
-.cats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.cats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+.cats > .card { display: flex; flex-direction: column; min-height: 196px; }
+.cats > .card > .lk { margin-top: auto; padding-top: 8px; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; animation: rise .3s ease-out both; }
 .card h3 { font-size: 15px; margin: 0; }
 .catHead { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }

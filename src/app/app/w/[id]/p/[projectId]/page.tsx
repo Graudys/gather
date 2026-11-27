@@ -83,6 +83,7 @@ export default async function ProjectPage({ params, searchParams }: PageProps<"/
           <div className={s.seg} role="group" aria-label="Ver como">
             <Link href={q({ vista: undefined })} className={!list ? s.on : ""}><Icon name="kanban" size={14} /> Quadro</Link>
             <Link href={q({ vista: "lista" })} className={list ? s.on : ""}><Icon name="list" size={14} /> Lista</Link>
+            {board.canSeeInsights && <Link href={`${base}/desempenho`} title="Só dono e admin veem"><Icon name="chart" size={14} /> Desempenho</Link>}
           </div>
           <span className={s.grow} />
           <form action={base} className={s.srch} role="search">

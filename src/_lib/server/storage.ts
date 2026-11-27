@@ -81,3 +81,23 @@ export async function listFolder(prefix: string) {
   const { data } = await sb().storage.from(BUCKET).list(prefix, { limit: 1000 });
   return data ?? [];
 }
+
+/** Grava bytes direto (fotos de perfil/workspace, já recortadas no navegador). */
+export async function uploadObject(path: string, bytes: Uint8Array, contentType: string) {
+  await ensureBucket();
+  const { error } = await sb().storage.from(BUCKET).upload(path, bytes, { contentType, upsert: true, cacheControl: "31536000" });
+  if (error) throw error;
+}
+
+/** Lê o arquivo (só para fotos pequenas). null se não existe. */
+export async function downloadObject(path: string): Promise<Uint8Array | null> {
+  const { data, error } = await sb().storage.from(BUCKET).download(path);
+  if (error || !data) return null;
+  return new Uint8Array(await data.arrayBuffer());
+}
+
+/** Copia um arquivo dentro do bucket (enviar anotação com fotos). */
+export async function copyObject(from: string, to: string) {
+  const { error } = await sb().storage.from(BUCKET).copy(from, to);
+  if (error) throw error;
+}

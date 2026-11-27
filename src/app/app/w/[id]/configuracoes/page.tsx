@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { WorkspaceIconCard } from "@/_components/shell/WorkspaceIconCard";
 import Link from "next/link";
 import { getWorkspaceSettingsView } from "@/_data/members";
 import { addMember, deleteWorkspace, removeMember, setMemberRole, updateWorkspace } from "@/_data/members.actions";
@@ -12,6 +13,7 @@ import { addDays } from "@/lib/time";
 import { dayWindow } from "@/lib/projects";
 import s from "@/_styles/app/Page.module.css";
 import c from "@/_styles/app/Settings.module.css";
+import { NOTE_KEEP_MONTHS, NOTE_RETENTION_OPTIONS, NOTE_WARN_DAYS, yearsLabel } from "@/lib/notes";
 
 export const metadata: Metadata = { title: "Configurações do workspace" };
 
@@ -56,7 +58,11 @@ export default async function Configuracoes({ params, searchParams }: PageProps<
       {sp.ok && <div className={c.alert}><Alert tone="ok">{OK[sp.ok] ?? "Feito."}</Alert></div>}
 
       {tab === "geral" && (
-        <>
+        <div className={c.stack}>
+          <section className={`${s.card} ${c.narrow}`}>
+            <h3>Ícone do workspace</h3>
+            <WorkspaceIconCard w={{ id, name: v.workspace.name, icon: v.icon, photoV: v.photoV }} />
+          </section>
           <section className={`${s.card} ${c.narrow}`}>
             <form action={updateWorkspace} className={c.fg}>
               <input type="hidden" name="workspaceId" value={id} />
@@ -99,7 +105,7 @@ export default async function Configuracoes({ params, searchParams }: PageProps<
               )}
             </section>
           )}
-        </>
+        </div>
       )}
 
       {tab === "membros" && (
@@ -202,6 +208,26 @@ export default async function Configuracoes({ params, searchParams }: PageProps<
                 </div>
                 <p className={`${s.mut} ${s.sm}`} style={{ lineHeight: 1.6, margin: "14px 0 0" }}>As opções são definidas pelo admin do Gather. Depois do prazo, o arquivo sai do armazenamento e a mensagem mostra &quot;Arquivo expirado&quot;.</p>
               </section>
+              {personal && (
+                <section className={s.card}>
+                  <div className={c.cardHead}>
+                    <span className={c.badge}><Icon name="file" size={18} /></span>
+                    <div className={s.grow}><h3 style={{ margin: 0 }}>Notas</h3><div className={`${s.mut} ${s.sm}`}>Cadernos e páginas da aba Notas</div></div>
+                  </div>
+                  <div style={{ fontSize: 14, marginBottom: 10 }}>Guardar cada nota por</div>
+                  <div className={`${s.seg} ${c.radios}`} role="radiogroup" aria-label="Prazo das notas">
+                    {NOTE_RETENTION_OPTIONS.map((mo) => (
+                      <label key={mo}><input type="radio" name="noteMonths" value={mo} defaultChecked={mo === v.retention.noteMonths} /><span>{yearsLabel(mo)}</span></label>
+                    ))}
+                  </div>
+                  <ul className={`${s.mut} ${s.sm}`} style={{ lineHeight: 1.7, margin: "14px 0 0", paddingLeft: 18 }}>
+                    <li>O prazo conta da <b>última edição</b>: editar uma nota renova o prazo dela.</li>
+                    <li>{NOTE_WARN_DAYS} dias antes de vencer, chega um aviso no sino (e no aparelho, se ligado).</li>
+                    <li>Na aba Notas você decide: baixar em .md, manter por mais {yearsLabel(NOTE_KEEP_MONTHS)} ou apagar.</li>
+                    <li><b>Nada é apagado sozinho</b>: só some se você digitar APAGAR.</li>
+                  </ul>
+                </section>
+              )}
               <div className={c.actions}>
                 <Link href={`${base}?aba=retencao`} className={s.btn2}>Cancelar</Link>
                 <Button>Salvar prazos</Button>

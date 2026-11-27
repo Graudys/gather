@@ -1,4 +1,5 @@
 import "server-only";
+import { handleOf } from "@/lib/mentions";
 import { cache } from "react";
 import { after } from "next/server";
 import { db } from "@/_lib/db/prisma";
@@ -32,8 +33,9 @@ export const getWorkspaceShell = cache(async (workspaceId: string): Promise<Work
     db.workspaceSettings.findUnique({ where: { workspaceId }, select: { messageRetentionMonths: true, fileRetentionHours: true } }),
     // Não lidas = mensagens principais de outras pessoas depois da última leitura
     // (ou da entrada no workspace, se nunca abriu o canal).
-    db.$queryRaw<{ id: string; name: string; visibility: "PUBLIC" | "PRIVATE"; unread: bigint }[]>`
-      select c.id, c.name, c.visibility::text as visibility,
+    db.$queryRaw<{ id: string; name: string; visibility: "PUBLIC" | "PRIVATE"; icon: string | null; manage: boolean; unread: bigint }[]>`
+      select c.id, c.name, c.visibility::text as visibility, c.icon,
+             (wm.role in ('OWNER', 'ADMIN') or c.created_by = ${user.id}::uuid or cm.role = 'CHANNEL_MODERATOR') as manage,
              count(m.id) filter (where m.created_at > coalesce(cm.last_read_at, wm.joined_at)) as unread
       from channels c
       join workspace_members wm on wm.workspace_id = c.workspace_id and wm.user_id = ${user.id}::uuid
@@ -42,10 +44,10 @@ export const getWorkspaceShell = cache(async (workspaceId: string): Promise<Work
            and m.deleted_at is null and m.sender_id is distinct from ${user.id}::uuid
       where c.workspace_id = ${workspaceId}::uuid
         and (c.visibility = 'PUBLIC' or cm.user_id is not null)
-      group by c.id, c.name, c.visibility
-      order by c.name`,
-    db.$queryRaw<{ id: string; kind: "DIRECT" | "GROUP"; unread: bigint; last: Date | null }[]>`
-      select cv.id, cv.kind::text as kind,
+      group by c.id, c.name, c.visibility, c.icon, wm.role, c.created_by, cm.role, c.position
+      order by c.position asc nulls last, c.name`,
+    db.$queryRaw<{ id: string; kind: "DIRECT" | "GROUP"; icon: string | null; unread: bigint; last: Date | null }[]>`
+      select cv.id, cv.kind::text as kind, cv.icon,
              count(m.id) filter (where m.created_at > coalesce(me.last_read_at, me.joined_at)) as unread,
              max(m.created_at) as last
       from conversations cv
@@ -53,7 +55,7 @@ export const getWorkspaceShell = cache(async (workspaceId: string): Promise<Work
       left join messages m on m.conversation_id = cv.id and m.parent_message_id is null
            and m.deleted_at is null and m.sender_id is distinct from ${user.id}::uuid
       where cv.workspace_id = ${workspaceId}::uuid
-      group by cv.id, cv.kind, cv.created_at
+      group by cv.id, cv.kind, cv.icon, cv.created_at
       order by coalesce(max(m.created_at), cv.created_at) desc`,
   ]);
 
@@ -66,11 +68,11 @@ export const getWorkspaceShell = cache(async (workspaceId: string): Promise<Work
   const others = new Map<string, string[]>();
   for (const m of convMembers) others.set(m.conversationId, [...(others.get(m.conversationId) ?? []), m.user.name]);
 
-  const channels: SidebarChannel[] = channelRows.map((c) => ({ id: c.id, name: c.name, visibility: c.visibility, unread: Number(c.unread) }));
+  const channels: SidebarChannel[] = channelRows.map((c) => ({ id: c.id, name: c.name, visibility: c.visibility, icon: c.icon, canManage: Boolean(c.manage), unread: Number(c.unread) }));
   const conversations: SidebarConversation[] = convRows.map((c) => {
     const names = others.get(c.id) ?? [];
     const title = c.kind === "DIRECT" ? (names[0] ?? "Só você") : names.map(firstName).join(", ") || "Só você";
-    return { id: c.id, kind: c.kind, title, initials: initials(names.length === 1 ? names[0]! : title), unread: Number(c.unread) };
+    return { id: c.id, kind: c.kind, icon: c.kind === "GROUP" ? c.icon : null, title, initials: initials(names.length === 1 ? names[0]! : title), unread: Number(c.unread) };
   });
 
   return {
@@ -95,6 +97,8 @@ const messageSelect = {
     reactions: { select: { emoji: true, userId: true } },
     attachments: { orderBy: { createdAt: "asc" }, select: { id: true, fileName: true, mimeType: true, sizeBytes: true, storagePath: true } },
     _count: { select: { replies: { where: { deletedAt: null } } } },
+    sharedNote: { select: { id: true, title: true, content: true } },
+    pinnedAt: true,
 } as const;
 
 type Row = {
@@ -108,9 +112,11 @@ type Row = {
   reactions: { emoji: string; userId: string }[];
   attachments: { id: string; fileName: string; mimeType: string; sizeBytes: bigint; storagePath: string | null }[];
   _count: { replies: number };
+  sharedNote: { id: string; title: string; content: string } | null;
+  pinnedAt: Date | null;
 };
 
-function toView(m: Row, me: string, wsAdmin: boolean): ChatMessage {
+function toView(m: Row, me: string, wsAdmin: boolean, canPin = false): ChatMessage {
   const byEmoji = new Map<string, { count: number; mine: boolean }>();
   for (const r of m.reactions) {
     const cur = byEmoji.get(r.emoji) ?? { count: 0, mine: false };
@@ -128,7 +134,10 @@ function toView(m: Row, me: string, wsAdmin: boolean): ChatMessage {
     replyCount: m._count.replies,
     reactions: deleted ? [] : [...byEmoji].map(([emoji, v]) => ({ emoji, ...v })),
     files: deleted ? [] : m.attachments.map((a) => ({ id: a.id, name: a.fileName, mime: a.mimeType, size: Number(a.sizeBytes), expired: !a.storagePath })),
-    canEdit: !deleted && m.senderId === me,
+    note: deleted || !m.sharedNote ? null : { id: m.sharedNote.id, title: m.sharedNote.title, preview: m.sharedNote.content.replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/[#>*_`~-]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 140) },
+    pinned: Boolean(m.pinnedAt) && !deleted,
+    canPin: canPin && !deleted,
+    canEdit: !deleted && m.senderId === me && !m.sharedNote,
     canDelete: !deleted && (m.senderId === me || wsAdmin),
   };
 }
@@ -157,7 +166,13 @@ export async function getChatView(
     select: messageSelect,
   });
   const hasMore = rows.length > PAGE;
-  const messages = rows.slice(0, PAGE).reverse().map((m) => toView(m, me, ctx.wsAdmin));
+  const pinRight = isChannel && "canManage" in ctx && ctx.canManage;
+  const messages = rows.slice(0, PAGE).reverse().map((m) => toView(m, me, ctx.wsAdmin, pinRight));
+  // Fixadas do canal (mesmo as antigas: fixada não some pelo prazo).
+  const pinnedRows = isChannel
+    ? await db.message.findMany({ where: { channelId: target.id, pinnedAt: { not: null }, deletedAt: null }, orderBy: { pinnedAt: "desc" }, take: 30, select: messageSelect })
+    : [];
+  const pinned = pinnedRows.map((m) => toView(m, me, ctx.wsAdmin, pinRight));
 
   let thread: ChatView["thread"] = null;
   if (threadId) {
@@ -169,26 +184,34 @@ export async function getChatView(
         take: 200,
         select: messageSelect,
       });
-      thread = { parent: toView(parent, me, ctx.wsAdmin), replies: replies.map((r) => toView(r, me, ctx.wsAdmin)) };
+      thread = { parent: toView(parent, me, ctx.wsAdmin, pinRight), replies: replies.map((r) => toView(r, me, ctx.wsAdmin)) };
     }
   }
 
   let title: string;
   let description: string | null = null;
-  let members: { id: string; name: string }[];
+  let members: { id: string; name: string; username?: string | null }[];
   let canManage = false;
   let visibility: "PUBLIC" | "PRIVATE" | undefined;
+  let icon: string | null = null;
+  let canEditIcon = false;
   if ("channel" in ctx) {
     title = ctx.channel.name;
+    icon = ctx.channel.icon;
+    canEditIcon = ctx.canManage;
     description = ctx.channel.description;
     visibility = ctx.channel.visibility;
     canManage = ctx.canManage;
     members =
       ctx.channel.visibility === "PRIVATE"
-        ? (await db.channelMember.findMany({ where: { channelId: target.id }, select: { user: { select: { id: true, name: true } } } })).map((m) => m.user)
-        : (await db.workspaceMember.findMany({ where: { workspaceId }, select: { user: { select: { id: true, name: true } } } })).map((m) => m.user);
+        ? (await db.channelMember.findMany({ where: { channelId: target.id }, select: { user: { select: { id: true, name: true, username: true } } } })).map((m) => m.user)
+        : (await db.workspaceMember.findMany({ where: { workspaceId }, select: { user: { select: { id: true, name: true, username: true } } } })).map((m) => m.user);
   } else {
     members = ctx.conversation.members.map((m: { user: { id: string; name: string } }) => m.user);
+    if (ctx.conversation.kind === "GROUP") {
+      icon = ctx.conversation.icon;
+      canEditIcon = true;
+    }
     const others = members.filter((m) => m.id !== me);
     title = others.length ? others.map((o) => (others.length > 1 ? firstName(o.name) : o.name)).join(", ") : "Só você";
   }
@@ -196,7 +219,8 @@ export async function getChatView(
   // Marca como lido depois de responder (não atrasa a página).
   after(() => markRead(target, me));
 
-  return { target, title, description, visibility, members, canManage, messages, hasMore, cutoff: cutoff.toISOString(), thread };
+  const withHandles = members.map((m) => ({ id: m.id, name: m.name, handle: handleOf(m) }));
+  return { target, title, description, visibility, icon, canEditIcon, members: withHandles, canManage, messages, pinned, hasMore, cutoff: cutoff.toISOString(), thread };
 }
 
 /** Grava a última leitura. Só chamado depois de requireChannel/requireConversation. */
