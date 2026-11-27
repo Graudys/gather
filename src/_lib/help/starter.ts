@@ -394,4 +394,32 @@ Só **dono e admin do workspace** veem. No projeto, clique em **Desempenho** (ao
 
 **Baixar CSV** gera uma planilha com uma linha por tarefa.`,
   },
+  {
+    category: "chat", slug: "tarefa-no-chat", title: "Transformar mensagem em tarefa e mandar tarefa pro canal",
+    summary: "Passe o mouse na mensagem e clique no ícone de tarefa para criá-la num projeto. No painel da tarefa, use Enviar pro canal.",
+    keywords: ["criar tarefa da mensagem", "mensagem em tarefa", "virar tarefa", "enviar tarefa", "tarefa no canal", "cartão de tarefa", "compartilhar tarefa"],
+    body: `# Transformar mensagem em tarefa e mandar tarefa pro canal
+
+**Da mensagem para a tarefa**
+1. Passe o mouse na mensagem e clique no ícone de **tarefa** (o círculo com ✓).
+2. Ajuste o título e escolha o projeto. O projeto do canal já vem sugerido.
+
+A tarefa entra na primeira coluna, com o texto da mensagem na descrição, e um **cartão** aparece na conversa.
+
+**Da tarefa para o canal**
+No painel da tarefa, clique em **Enviar pro canal**, escolha o canal e, se quiser, escreva uma mensagem.
+
+O cartão mostra sempre o **estado atual**: prioridade, prazo (Vence hoje, Atrasada), coluna e responsável. Quem não participa do projeto vê só "Tarefa de um projeto privado".`,
+  },
+  {
+    category: "agenda", slug: "reuniao-no-canal", title: "Reunião aberta no canal",
+    summary: "Quem abre uma reunião num canal deixa um cartão com o botão Entrar. Quando ela acaba, o cartão mostra quanto tempo durou.",
+    keywords: ["entrar na reunião", "link da reunião", "reunião no canal", "botão entrar", "cartão de reunião"],
+    body: `# Reunião aberta no canal
+
+Ao usar **Reuniões › Iniciar reunião agora** e escolher um canal, aparece no canal um **cartão** com o título da reunião e o botão **Entrar**.
+
+- Enquanto a reunião está aberta, qualquer pessoa do canal entra com um clique.
+- Quando ela termina, o cartão mostra **Encerrada · N min**.`,
+  },
 ];

@@ -584,6 +584,9 @@ model Message {
   // Fixada no topo do canal (quem gerencia o canal). Fixada não some pelo prazo das mensagens.
   pinnedAt        DateTime? @map("pinned_at") @db.Timestamptz(6)
   pinnedById      String?   @map("pinned_by") @db.Uuid
+  // Cartões: reunião (mostra Entrar enquanto aberta) e tarefa (estado atual, só para quem vê o projeto).
+  meetingId       String?   @map("meeting_id") @db.Uuid
+  taskId          String?   @map("task_id") @db.Uuid
 
   workspace    Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   channel      Channel?            @relation(fields: [channelId], references: [id], onDelete: Cascade)
@@ -594,6 +597,8 @@ model Message {
   reactions    MessageReaction[]
   attachments  MessageAttachment[]
   sharedNote   SharedNote?
+  meeting      Meeting?            @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  task         Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId, createdAt]) // usado pela limpeza
   @@index([channelId, createdAt])
@@ -676,6 +681,7 @@ model Task {
   labelLinks    TaskLabelLink[]
   comments      TaskComment[]
   attachments   TaskAttachment[]
+  messages      Message[]
 
   @@index([projectId, statusId, position])
   @@index([dueAt])
@@ -782,6 +788,7 @@ model Meeting {
   participants  MeetingParticipant[]
   notes         MeetingNote?
   tasks         Task[]
+  messages      Message[]
 
   @@index([workspaceId, startsAt])
   @@index([status, hardEndAt]) // job que encerra salas por tempo ou saldo

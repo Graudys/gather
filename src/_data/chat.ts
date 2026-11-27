@@ -86,7 +86,8 @@ export const getWorkspaceShell = cache(async (workspaceId: string): Promise<Work
   };
 });
 
-const messageSelect = {
+/** Campos da mensagem; "me" filtra se a pessoa vê o projeto da tarefa do cartão. */
+const messageSelect = (me: string) => ({
     id: true,
     content: true,
     createdAt: true,
@@ -99,7 +100,16 @@ const messageSelect = {
     _count: { select: { replies: { where: { deletedAt: null } } } },
     sharedNote: { select: { id: true, title: true, content: true } },
     pinnedAt: true,
-} as const;
+    meeting: { select: { id: true, title: true, status: true, startedAt: true, startsAt: true, endedAt: true } },
+    task: {
+      select: {
+        id: true, title: true, priority: true, dueAt: true, completedAt: true,
+        status: { select: { name: true } },
+        assignees: { take: 1, select: { user: { select: { name: true } } } },
+        project: { select: { id: true, name: true, team: { select: { visibility: true, members: { where: { userId: me }, select: { userId: true } } } } } },
+      },
+    },
+}) as const;
 
 type Row = {
   id: string;
@@ -114,7 +124,31 @@ type Row = {
   _count: { replies: number };
   sharedNote: { id: string; title: string; content: string } | null;
   pinnedAt: Date | null;
+  meeting: { id: string; title: string; status: string; startedAt: Date | null; startsAt: Date | null; endedAt: Date | null } | null;
+  task: {
+    id: string; title: string; priority: "LOW" | "MEDIUM" | "HIGH"; dueAt: Date | null; completedAt: Date | null;
+    status: { name: string }; assignees: { user: { name: string } }[];
+    project: { id: string; name: string; team: { visibility: string; members: { userId: string }[] } };
+  } | null;
 };
+
+function meetingCard(m: Row["meeting"]): ChatMessage["meeting"] {
+  if (!m) return null;
+  const open = !m.endedAt && m.status !== "ENDED" && m.status !== "CANCELLED";
+  const from = m.startedAt ?? m.startsAt;
+  const minutes = !open && m.endedAt && from ? Math.max(1, Math.round((m.endedAt.getTime() - from.getTime()) / 60_000)) : null;
+  return { id: m.id, title: m.title, open, cancelled: m.status === "CANCELLED", minutes };
+}
+
+function taskCard(t: Row["task"]): ChatMessage["task"] {
+  if (!t) return null;
+  const visible = t.project.team.visibility === "WORKSPACE" || t.project.team.members.length > 0;
+  if (!visible) return { hidden: true };
+  return {
+    hidden: false, id: t.id, projectId: t.project.id, projectName: t.project.name, title: t.title, priority: t.priority,
+    dueAt: t.dueAt ? t.dueAt.toISOString() : null, done: Boolean(t.completedAt), column: t.status.name, who: t.assignees[0]?.user.name ?? null,
+  };
+}
 
 function toView(m: Row, me: string, wsAdmin: boolean, canPin = false): ChatMessage {
   const byEmoji = new Map<string, { count: number; mine: boolean }>();
@@ -135,6 +169,8 @@ function toView(m: Row, me: string, wsAdmin: boolean, canPin = false): ChatMessa
     reactions: deleted ? [] : [...byEmoji].map(([emoji, v]) => ({ emoji, ...v })),
     files: deleted ? [] : m.attachments.map((a) => ({ id: a.id, name: a.fileName, mime: a.mimeType, size: Number(a.sizeBytes), expired: !a.storagePath })),
     note: deleted || !m.sharedNote ? null : { id: m.sharedNote.id, title: m.sharedNote.title, preview: m.sharedNote.content.replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/[#>*_`~-]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 140) },
+    meeting: deleted ? null : meetingCard(m.meeting),
+    task: deleted ? null : taskCard(m.task),
     pinned: Boolean(m.pinnedAt) && !deleted,
     canPin: canPin && !deleted,
     canEdit: !deleted && m.senderId === me && !m.sharedNote,
@@ -163,26 +199,26 @@ export async function getChatView(
     where: { ...where, workspaceId, parentMessageId: null, createdAt: { gte: cutoff } },
     orderBy: { createdAt: "desc" },
     take: PAGE + 1,
-    select: messageSelect,
+    select: messageSelect(me),
   });
   const hasMore = rows.length > PAGE;
   const pinRight = isChannel && "canManage" in ctx && ctx.canManage;
   const messages = rows.slice(0, PAGE).reverse().map((m) => toView(m, me, ctx.wsAdmin, pinRight));
   // Fixadas do canal (mesmo as antigas: fixada não some pelo prazo).
   const pinnedRows = isChannel
-    ? await db.message.findMany({ where: { channelId: target.id, pinnedAt: { not: null }, deletedAt: null }, orderBy: { pinnedAt: "desc" }, take: 30, select: messageSelect })
+    ? await db.message.findMany({ where: { channelId: target.id, pinnedAt: { not: null }, deletedAt: null }, orderBy: { pinnedAt: "desc" }, take: 30, select: messageSelect(me) })
     : [];
   const pinned = pinnedRows.map((m) => toView(m, me, ctx.wsAdmin, pinRight));
 
   let thread: ChatView["thread"] = null;
   if (threadId) {
-    const parent = await db.message.findFirst({ where: { id: threadId, ...where, workspaceId, parentMessageId: null }, select: messageSelect });
+    const parent = await db.message.findFirst({ where: { id: threadId, ...where, workspaceId, parentMessageId: null }, select: messageSelect(me) });
     if (parent) {
       const replies = await db.message.findMany({
         where: { parentMessageId: parent.id, workspaceId },
         orderBy: { createdAt: "asc" },
         take: 200,
-        select: messageSelect,
+        select: messageSelect(me),
       });
       thread = { parent: toView(parent, me, ctx.wsAdmin, pinRight), replies: replies.map((r) => toView(r, me, ctx.wsAdmin)) };
     }

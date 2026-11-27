@@ -40,7 +40,7 @@ export async function startMeetingNow(form: FormData) {
   if (channelId) {
     const ch = await requireChannel(workspaceId, channelId); // precisa poder escrever no canal
     await db.message.create({
-      data: { workspaceId, channelId: ch.channel.id, senderId: user.id, content: `📞 Reunião “${title}” começou. Entrar: /app/w/${workspaceId}/reuniao/${m.id}` },
+      data: { workspaceId, channelId: ch.channel.id, senderId: user.id, meetingId: m.id, content: "Abri uma reunião." },
     });
   }
   refresh(workspaceId);

@@ -1,5 +1,7 @@
 "use client";
 import { Icon } from "@/_components/ui/Icon";
+import { MeetingCard, TaskCard } from "@/_components/chat/ChatCards";
+import { TaskFromMessage } from "@/_components/chat/TaskFromMessage";
 import { MENTION_RE } from "@/lib/mentions";
 import { FileList } from "@/_components/files/FileList";
 import Link from "next/link";
@@ -108,6 +110,8 @@ export function MessageItem({ m, workspaceId, time, compact, threadHref }: Props
                 </span>
               </Link>
             )}
+            {m.meeting && <MeetingCard meeting={m.meeting} workspaceId={workspaceId} />}
+            {m.task && <TaskCard task={m.task} workspaceId={workspaceId} />}
             <FileList files={m.files} />
           </>
         )}
@@ -133,10 +137,16 @@ export function MessageItem({ m, workspaceId, time, compact, threadHref }: Props
           </Link>
         )}
 
-        {confirming && (
+        {/* Some junto com a mensagem: depois de apagar não há mais o que confirmar */}
+        {confirming && !m.deleted && (
           <div className={s.confirm}>
             <span>Apagar para todo mundo?</span>
-            <form action={deleteMessage}>
+            <form
+              action={async (fd) => {
+                await deleteMessage(fd);
+                setConfirming(false);
+              }}
+            >
               <input type="hidden" name="workspaceId" value={workspaceId} />
               <input type="hidden" name="messageId" value={m.id} />
               <Button variant="ghost">Apagar</Button>
@@ -172,6 +182,7 @@ export function MessageItem({ m, workspaceId, time, compact, threadHref }: Props
             <>
               <button type="button" className={s.tool} onClick={() => setPicking(true)} title="Reagir"><Icon name="smile" /></button>
               {threadHref && <Link href={threadHref} className={s.tool} scroll={false} title="Responder em thread"><Icon name="reply" /></Link>}
+              {!m.deleted && !m.task && !m.note && <TaskFromMessage workspaceId={workspaceId} messageId={m.id} text={m.content} className={s.tool} />}
               {m.canPin && <button type="button" className={s.tool} onClick={pin} title={m.pinned ? "Desafixar" : "Fixar no topo do canal"}><Icon name={m.pinned ? "unpin" : "pin"} /></button>}
               {m.canEdit && <button type="button" className={s.tool} onClick={() => setEditing(true)} title="Editar"><Icon name="edit" /></button>}
               {m.canDelete && <button type="button" className={`${s.tool} ${s.toolDanger}`} onClick={() => setConfirming(true)} title="Apagar"><Icon name="trash" /></button>}

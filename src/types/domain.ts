@@ -53,6 +53,11 @@ export type ChatMessage = {
   reactions: ReactionView[];
   files: FileView[];
   note: { id: string; title: string; preview: string } | null; // anotação enviada (cartão)
+  meeting: { id: string; title: string; open: boolean; cancelled: boolean; minutes: number | null } | null; // cartão de reunião
+  task:
+    | { hidden: true }
+    | { hidden: false; id: string; projectId: string; projectName: string; title: string; priority: "LOW" | "MEDIUM" | "HIGH"; dueAt: string | null; done: boolean; column: string; who: string | null }
+    | null; // cartão de tarefa: estado atual; escondido para quem não vê o projeto
   pinned: boolean; // fixada no topo do canal
   canPin: boolean; // quem gerencia o canal, só mensagem principal
   canEdit: boolean;

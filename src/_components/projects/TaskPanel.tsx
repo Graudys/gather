@@ -6,6 +6,7 @@ import { addComment, createLabel, deleteComment, deleteTask, moveTask, setAssign
 import { Avatar } from "@/_components/chat/Avatar";
 import { Icon } from "@/_components/ui/Icon";
 import { TaskFiles } from "@/_components/files/TaskFiles";
+import { SendTaskToChannel } from "@/_components/projects/SendTaskToChannel";
 import { LabelChip } from "@/_components/projects/TaskBadges";
 import { Button } from "@/_components/ui/Button";
 import { LABEL_COLORS, PRIORITY, inputDay } from "@/lib/projects";
@@ -16,6 +17,7 @@ import s from "@/_styles/projects/Board.module.css";
 export function TaskPanel({ task, board, workspaceId, closeHref }: { task: TaskDetail; board: BoardView; workspaceId: string; closeHref: string }) {
   const ids = { workspaceId, taskId: task.id };
   const [confirming, setConfirming] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const save = (fields: Record<string, string>) => {
     const fd = new FormData();
@@ -29,9 +31,13 @@ export function TaskPanel({ task, board, workspaceId, closeHref }: { task: TaskD
         <span className={s.chip}>{board.project.name}</span>
         {task.completed && <span className={`${s.chip} ${s.grn}`}>Concluída</span>}
         <span style={{ flex: 1 }} />
+        <button type="button" className={`${s.btn2} ${sending ? s.btnOn : ""}`} onClick={() => setSending((v) => !v)} aria-expanded={sending}>
+          <Icon name="send" size={14} /> Enviar pro canal
+        </button>
         <Link href={closeHref} scroll={false} className={s.close} aria-label="Fechar tarefa"><Icon name="x" size={18} /></Link>
       </div>
       <div className={s.panelBody}>
+        {sending && <SendTaskToChannel key={task.id} workspaceId={workspaceId} taskId={task.id} onClose={() => setSending(false)} />}
         <textarea
           key={`t-${task.title}`}
           className={s.titleInput}
