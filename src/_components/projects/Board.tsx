@@ -5,8 +5,7 @@ import { useRef, useState } from "react";
 import type { BoardView, TaskCard } from "@/types/domain";
 import { createTask, moveTask } from "@/_data/projects.actions";
 import { Avatar } from "@/_components/chat/Avatar";
-import { LabelChip, PriorityChip } from "@/_components/projects/TaskBadges";
-import { isOverdue, shortDay } from "@/lib/projects";
+import { DueChip, LabelChip, PriorityChip } from "@/_components/projects/TaskBadges";
 import s from "@/_styles/projects/Board.module.css";
 
 type Drop = { statusId: string; index: number } | null;
@@ -79,7 +78,7 @@ export function Board({ board, workspaceId, taskHref, newHref, manageHref }: { b
                 const visible = col.tasks.filter((x) => x.id !== dragId);
                 const idx = visible.findIndex((x) => x.id === t.id);
                 return (
-                  <div key={t.id} className={s.noScroll}>
+                  <div key={t.id}>
                     {drop?.statusId === col.id && drop.index === idx && t.id !== dragId && <div className={s.dropLine} />}
                     <Card
                       t={t}
@@ -115,7 +114,6 @@ function Card({ t, href, dragging, onDragStart, onDragEnd, onDragOver }: {
   t: TaskCard; href: string; dragging: boolean;
   onDragStart: () => void; onDragEnd: () => void; onDragOver: (e: React.DragEvent<HTMLAnchorElement>) => void;
 }) {
-  const late = !t.completed && isOverdue(t.dueAt);
   return (
     <Link
       href={href}
@@ -136,7 +134,7 @@ function Card({ t, href, dragging, onDragStart, onDragEnd, onDragOver }: {
       </div>
       <h4 className={`${s.cardTitle} ${t.completed ? s.done : ""}`}>{t.title}</h4>
       {t.description && <p className={s.cardDesc}>{t.description}</p>}
-      {t.dueAt && <div className={`${s.due} ${late ? s.overdue : ""}`}><Icon name="cal" size={13} /> {shortDay(t.dueAt)}</div>}
+      {t.dueAt && <div className={s.due}><DueChip dueAt={t.dueAt} completed={t.completed} /></div>}
       <div className={s.cardFoot}>
         <span className={s.faces}>
           {t.assignees.slice(0, 4).map((a) => <Avatar key={a.id} id={a.id} name={a.name} small />)}

@@ -1,4 +1,5 @@
 import "server-only";
+import { DEFAULT_NOTEBOOK, ROUTINE_PROJECT } from "@/lib/notes";
 import { db } from "@/_lib/db/prisma";
 
 /** slug curto e único: nome-normalizado + 6 caracteres aleatórios. */
@@ -36,10 +37,12 @@ export async function ensurePersonalWorkspace(userId: string, name: string) {
       createdById: userId,
       members: { create: { userId, role: "OWNER" } },
       settings: { create: ret },
-      channels: { create: { name: "notas", kind: "CUSTOM", visibility: "PRIVATE", createdById: userId, members: { create: { userId, role: "CHANNEL_MODERATOR" } } } },
+      // Caderno fixo "Anotações" (Notas). Não pode ser apagado.
+      notebooks: { create: { name: DEFAULT_NOTEBOOK, isDefault: true, createdById: userId } },
     },
     select: { id: true },
   });
+  await ensureRoutineProject(ws.id, userId);
   return ws.id;
 }
 
@@ -66,5 +69,34 @@ export async function createTeamWorkspaceFor(userId: string, name: string) {
       select: { id: true },
     });
     return { ok: true as const, id: ws.id };
+  });
+}
+
+/**
+ * Projeto fixo "Minha rotina" do espaço pessoal: quadro só seu, que não pode
+ * ser apagado nem arquivado. Criado no primeiro acesso (ou na próxima visita,
+ * para espaços antigos). Fica na equipe escondida "Geral".
+ * Não é uma Server Action: só é chamado por código do servidor que já conferiu o acesso.
+ */
+export async function ensureRoutineProject(workspaceId: string, userId: string) {
+  const found = await db.project.findFirst({ where: { isFixed: true, team: { workspaceId } }, select: { id: true, name: true } });
+  if (found) return found;
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw`select pg_advisory_xact_lock(hashtext(${`routine:${workspaceId}`}))`;
+    const again = await tx.project.findFirst({ where: { isFixed: true, team: { workspaceId } }, select: { id: true, name: true } });
+    if (again) return again;
+    const team =
+      (await tx.team.findFirst({ where: { workspaceId, slug: "geral" }, select: { id: true } })) ??
+      (await tx.team.create({ data: { workspaceId, name: "Geral", slug: "geral", visibility: "WORKSPACE", createdById: userId }, select: { id: true } }));
+    const cols = ["A fazer", "Fazendo", "Feito"];
+    return tx.project.create({
+      data: {
+        teamId: team.id, name: ROUTINE_PROJECT, slug: "minha-rotina", isFixed: true, createdById: userId,
+        description: "Seu quadro pessoal para o dia a dia.",
+        members: { create: { userId, role: "PROJECT_ADMIN" } },
+        taskStatuses: { create: cols.map((n, i) => ({ name: n, position: i, isCompleted: i === cols.length - 1 })) },
+      },
+      select: { id: true, name: true },
+    });
   });
 }

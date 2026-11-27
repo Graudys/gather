@@ -36,7 +36,7 @@ export async function updateProfile(form: FormData) {
     const taken = await db.user.findFirst({ where: { username: d.username, NOT: { id: user.id } }, select: { id: true } });
     if (taken) redirect("/app/perfil?perr=usuarioUsado");
   }
-  const prefs = { mencoes: form.get("mencoes") === "on", tarefas: form.get("tarefas") === "on", reunioes: form.get("reunioes") === "on" };
+  const prefs = { mencoes: form.get("mencoes") === "on", canais: form.get("canais") === "on", tarefas: form.get("tarefas") === "on", reunioes: form.get("reunioes") === "on" };
   await db.user.update({
     where: { id: user.id },
     data: { name: d.name, username: d.username || null, bio: d.bio || null, timezone: d.timezone, notifyPrefs: prefs },

@@ -15,6 +15,7 @@
 .primary { background: linear-gradient(135deg, var(--accent-1), var(--accent-2)); color: #fff; }
 .ghost { background: var(--surface); color: var(--text-strong); border: 1px solid var(--line-3); font-weight: 500; }
 .link { background: none; color: var(--text-muted); padding: 0; font-weight: 400; }
+.danger { background: #b4232f; color: #fff; }
 .link:hover { color: var(--text); filter: none; }
 .block { width: 100%; }
 .button:disabled { cursor: default; filter: saturate(.7) brightness(.9); }

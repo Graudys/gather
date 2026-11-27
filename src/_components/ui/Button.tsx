@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes } from "react";
 import { useFormStatus } from "react-dom";
 import s from "@/_styles/ui/Button.module.css";
 
-type Props = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "ghost" | "link"; block?: boolean };
+type Props = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "ghost" | "link" | "danger"; block?: boolean };
 
 /**
  * Botão do app. Dentro de um formulário, enquanto a ação roda, ele trava e

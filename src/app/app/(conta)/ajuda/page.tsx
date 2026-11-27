@@ -7,7 +7,7 @@ import { Icon, type IconName } from "@/_components/ui/Icon";
 import s from "@/_styles/help/Help.module.css";
 
 export const metadata: Metadata = { title: "Central de ajuda" };
-const ICONS: Record<string, IconName> = { spark: "home", chat: "chat", board: "task", calendar: "cal", user: "user", users: "users", video: "video", shield: "shield" };
+const ICONS: Record<string, IconName> = { spark: "home", chat: "chat", board: "task", calendar: "cal", user: "user", users: "users", video: "video", shield: "shield", notebook: "notebook", bell: "bell" };
 
 // Central de ajuda (mockup "AjudaCentral").
 export default async function Ajuda({ searchParams }: PageProps<"/app/ajuda">) {

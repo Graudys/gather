@@ -1,8 +1,7 @@
 import Link from "next/link";
 import type { BoardView } from "@/types/domain";
 import { Avatar } from "@/_components/chat/Avatar";
-import { PriorityChip } from "@/_components/projects/TaskBadges";
-import { isOverdue, shortDay } from "@/lib/projects";
+import { DueChip, PriorityChip } from "@/_components/projects/TaskBadges";
 import s from "@/_styles/projects/Board.module.css";
 
 /** Vista em lista: uma tabela por coluna do quadro. */
@@ -19,7 +18,7 @@ export function TaskList({ board, taskHref }: { board: BoardView; taskHref: stri
               <Link key={t.id} href={`${taskHref}${t.id}`} scroll={false} className={s.row}>
                 <span className={`${s.rowTitle} ${t.completed ? s.done : ""}`}>{t.title}</span>
                 <span><PriorityChip p={t.priority} /></span>
-                <span className={`${s.meta} ${!t.completed && isOverdue(t.dueAt) ? s.overdue : ""}`}>{t.dueAt ? shortDay(t.dueAt) : "—"}</span>
+                <span className={s.meta}>{t.dueAt ? <DueChip dueAt={t.dueAt} completed={t.completed} /> : "—"}</span>
                 <span className={s.faces}>{t.assignees.slice(0, 4).map((a) => <Avatar key={a.id} id={a.id} name={a.name} small />)}</span>
               </Link>
             ))}

@@ -1,3 +1,5 @@
+import { photoVersion } from "@/lib/images";
+export { photoVersion };
 import s from "@/_styles/chat/Chat.module.css";
 
 const COLORS = ["#2f6fe0", "#14866d", "#c2414e", "#8a4fd8", "#b7791f", "#2b8a9e", "#c0428a", "#4b6b2f"];
@@ -13,10 +15,21 @@ export function colorFor(key: string) {
   return COLORS[Math.abs(h) % COLORS.length];
 }
 
-export function Avatar({ id, name, small }: { id: string; name: string; small?: boolean }) {
+
+/**
+ * Bolinha com as iniciais; por cima, a foto (se a pessoa tiver).
+ * Sem foto, a rota devolve um pixel transparente e as iniciais aparecem.
+ */
+export function Avatar({ id, name, small, v, size }: { id: string; name: string; small?: boolean; v?: string; size?: number }) {
   return (
-    <span className={`${s.avatar} ${small ? s.avatarSm : ""}`} style={{ background: colorFor(id) }} aria-hidden="true">
+    <span
+      className={`${s.avatar} ${small ? s.avatarSm : ""}`}
+      style={{ background: colorFor(id), ...(size ? { width: size, height: size, fontSize: Math.round(size / 2.6) } : {}) }}
+      aria-hidden="true"
+    >
       {initialsOf(name)}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img className={s.avatarImg} src={`/api/avatar/u/${id}${v ? `?v=${v}` : ""}`} alt="" loading="lazy" decoding="async" />
     </span>
   );
 }

@@ -161,7 +161,7 @@ model User {
   name               String // nome de exibição
   email              String    @unique
   emailVerified      Boolean   @default(false) @map("email_verified")
-  image              String?
+  image              String? // foto de perfil: caminho no Storage (perfil/u/...), servida por /api/avatar/u/<id>
   username           String?   @unique
   bio                String?
   timezone           String?
@@ -182,6 +182,8 @@ model User {
 
   sessions                Session[]
   pushSubscriptions       PushSubscription[]
+  notebooksCreated        Notebook[]
+  notesCreated            Note[]
   accounts                Account[]
   workspacesCreated       Workspace[]
   workspaceMemberships    WorkspaceMember[]
@@ -342,6 +344,8 @@ model Workspace {
   slug                String        @unique
   kind                WorkspaceKind @default(TEAM) // PERSONAL é criado no primeiro acesso
   description         String?
+  icon                String? // emoji (lista fechada em src/lib/chat-icons.ts); nulo = primeira letra
+  imagePath           String?       @map("image_path") // foto recortada no Storage (perfil/w/...); tem prioridade sobre o emoji
   suspendedAt         DateTime?     @map("suspended_at") @db.Timestamptz(6)
   deletionRequestedAt DateTime?     @map("deletion_requested_at") @db.Timestamptz(6) // apaga de vez 30 dias depois
   createdById         String        @map("created_by") @db.Uuid
@@ -361,6 +365,8 @@ model Workspace {
   activityEvents  ActivityEvent[]
   notifications   Notification[]
   adminActions    AdminAction[]
+  notebooks       Notebook[]
+  notes           Note[]
 
   @@index([kind])
   @@map("workspaces")
@@ -387,6 +393,9 @@ model WorkspaceSettings {
   // Retenção (janela móvel)
   messageRetentionMonths   Int               @default(3) @map("message_retention_months")
   fileRetentionHours       Int               @default(24) @map("file_retention_hours")
+  // Notas do espaço pessoal: prazo em meses (12, 24, 36 ou 60) contado da última edição.
+  // Nunca apagam sozinhas: a pessoa é avisada antes e escolhe baixar, manter ou apagar.
+  noteRetentionMonths      Int               @default(12) @map("note_retention_months")
   // Reuniões (ligadas para todos na versão pessoal; o admin pode desligar)
   callsEnabled             Boolean           @default(true) @map("calls_enabled")
   callMinutesQuota         Int?              @map("call_minutes_quota") // nulo = usa platform_config
@@ -448,6 +457,7 @@ model Project {
   slug        String
   description String?
   status      ProjectStatus @default(ACTIVE)
+  isFixed     Boolean       @default(false) @map("is_fixed") // "Minha rotina" do espaço pessoal: não pode ser apagado nem arquivado
   startDate   DateTime?     @map("start_date") @db.Date
   dueDate     DateTime?     @map("due_date") @db.Date
   createdById String        @map("created_by") @db.Uuid
@@ -493,6 +503,8 @@ model Channel {
   description String?
   kind        ChannelKind       @default(CUSTOM)
   visibility  ChannelVisibility @default(PUBLIC)
+  icon        String? // emoji escolhido (lista fechada em src/lib/chat-icons.ts); nulo = # ou cadeado
+  position    Int? // ordem na lista, igual para todos (dono/admin arrasta); nulo = no fim, por nome
   createdById String            @map("created_by") @db.Uuid
   createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -528,6 +540,7 @@ model Conversation {
   id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   workspaceId String           @map("workspace_id") @db.Uuid
   kind        ConversationKind
+  icon        String? // emoji do grupo (lista fechada em src/lib/chat-icons.ts)
   createdById String           @map("created_by") @db.Uuid
   createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -568,6 +581,12 @@ model Message {
   editedAt        DateTime? @map("edited_at") @db.Timestamptz(6)
   deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  // Fixada no topo do canal (quem gerencia o canal). Fixada não some pelo prazo das mensagens.
+  pinnedAt        DateTime? @map("pinned_at") @db.Timestamptz(6)
+  pinnedById      String?   @map("pinned_by") @db.Uuid
+  // Cartões: reunião (mostra Entrar enquanto aberta) e tarefa (estado atual, só para quem vê o projeto).
+  meetingId       String?   @map("meeting_id") @db.Uuid
+  taskId          String?   @map("task_id") @db.Uuid
 
   workspace    Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   channel      Channel?            @relation(fields: [channelId], references: [id], onDelete: Cascade)
@@ -577,11 +596,15 @@ model Message {
   replies      Message[]           @relation("Thread")
   reactions    MessageReaction[]
   attachments  MessageAttachment[]
+  sharedNote   SharedNote?
+  meeting      Meeting?            @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  task         Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId, createdAt]) // usado pela limpeza
   @@index([channelId, createdAt])
   @@index([conversationId, createdAt])
   @@index([parentMessageId])
+  @@index([channelId, pinnedAt])
   @@map("messages")
 }
 
@@ -648,6 +671,7 @@ model Task {
   createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   completedAt     DateTime?    @map("completed_at") @db.Timestamptz(6)
+  statusChangedAt DateTime?    @map("status_changed_at") @db.Timestamptz(6) // quando entrou na coluna atual (painel de desempenho)
 
   project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   status        TaskStatus       @relation(fields: [statusId], references: [id])
@@ -657,6 +681,7 @@ model Task {
   labelLinks    TaskLabelLink[]
   comments      TaskComment[]
   attachments   TaskAttachment[]
+  messages      Message[]
 
   @@index([projectId, statusId, position])
   @@index([dueAt])
@@ -763,6 +788,7 @@ model Meeting {
   participants  MeetingParticipant[]
   notes         MeetingNote?
   tasks         Task[]
+  messages      Message[]
 
   @@index([workspaceId, startsAt])
   @@index([status, hardEndAt]) // job que encerra salas por tempo ou saldo
@@ -1044,4 +1070,98 @@ model ErrorHourlyCount {
 
   @@id([errorId, hour])
   @@map("error_hourly_counts")
+}
+
+// ───────────────────────── Notas (espaço pessoal) ─────────────────────────
+// Cadernos (como canais, mas de anotações) e páginas. O caderno "Minha vida"
+// (isDefault) é criado junto com o espaço pessoal e não pode ser apagado.
+
+model Notebook {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
+  name        String
+  icon        String? // lista fechada em src/lib/chat-icons.ts
+  isDefault   Boolean  @default(false) @map("is_default")
+  createdById String   @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  notes     Note[]
+
+  @@index([workspaceId])
+  @@map("notebooks")
+}
+
+// Prazo da nota = maior entre (updatedAt + note_retention_months) e keepUntil.
+model Note {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  notebookId  String    @map("notebook_id") @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  title       String    @default("")
+  content     String    @default("")
+  createdById String    @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6) // só muda quando a pessoa edita
+  keepUntil   DateTime? @map("keep_until") @db.Timestamptz(6) // "Manter por mais 1 ano"
+  warnedAt    DateTime? @map("warned_at") @db.Timestamptz(6) // aviso de vencimento já enviado
+
+  notebook  Notebook    @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User        @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  images    NoteImage[]
+
+  @@index([notebookId, updatedAt])
+  @@index([workspaceId, updatedAt])
+  @@map("notes")
+}
+
+// Foto dentro de uma nota (colada ou arrastada no editor). Vai para o Storage
+// já reduzida e regravada pelo navegador; servida só para a dona/o dono por
+// /api/notas/imagem/<id>. Apagar a nota apaga as fotos (o código tira do Storage).
+model NoteImage {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  noteId      String   @map("note_id") @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
+  storagePath String   @map("storage_path")
+  sizeBytes   Int      @map("size_bytes")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId])
+  @@index([workspaceId])
+  @@map("note_images")
+}
+
+// Anotação enviada (para um canal ou uma pessoa): o texto como estava no envio,
+// preso à mensagem, só para ler. Não cria nota nova e não duplica as fotos:
+// as fotos apontam para os mesmos arquivos da nota (storage_path igual).
+// Some junto com a mensagem (retenção do workspace).
+model SharedNote {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId   String   @unique @map("message_id") @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
+  title       String
+  content     String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  message Message           @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  images  SharedNoteImage[]
+
+  @@index([workspaceId])
+  @@map("shared_notes")
+}
+
+model SharedNoteImage {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sharedNoteId String   @map("shared_note_id") @db.Uuid
+  storagePath  String   @map("storage_path")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  sharedNote SharedNote @relation(fields: [sharedNoteId], references: [id], onDelete: Cascade)
+
+  @@index([sharedNoteId])
+  @@map("shared_note_images")
 }

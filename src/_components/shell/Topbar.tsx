@@ -7,12 +7,13 @@ import { Icon } from "@/_components/ui/Icon";
 import { colorFor, initialsOf } from "@/_components/chat/Avatar";
 import { useShell } from "@/_components/shell/ShellContext";
 import { signOut } from "@/_data/auth.actions";
+import { NotificationBell } from "@/_components/notifications/NotificationBell";
 import s from "@/_styles/shell/Shell.module.css";
 
 const SECTIONS: [string, string][] = [
   ["mensagens", "Mensagens"], ["c", "Mensagens"], ["dm", "Mensagens"], ["novo-canal", "Mensagens"], ["nova-conversa", "Mensagens"],
   ["projetos", "Projetos"], ["p", "Projetos"], ["tarefas", "Tarefas"], ["equipes", "Equipes"], ["agenda", "Calendário"],
-  ["reunioes", "Reuniões"], ["reuniao", "Reuniões"], ["busca", "Buscar"], ["configuracoes", "Configurações"], ["sair", "Sair do workspace"],
+  ["reunioes", "Reuniões"], ["reuniao", "Reuniões"], ["busca", "Buscar"], ["notas", "Notas"], ["configuracoes", "Configurações"], ["sair", "Sair do workspace"],
 ];
 const SECTION_HREF: Record<string, string> = { c: "mensagens", dm: "mensagens", "novo-canal": "mensagens", "nova-conversa": "mensagens", p: "projetos", reuniao: "reunioes" };
 const GLOBAL: Record<string, string> = { notificacoes: "Notificações", perfil: "Perfil", ajuda: "Ajuda", "novo-workspace": "Criar workspace" };
@@ -77,16 +78,21 @@ export function Topbar({ data }: { data: AppShellData }) {
       )}
       <div className={s.tr}>
         {ws && <Link href={`${base}/busca`} className={`${s.ic} ${s.searchIcon}`} aria-label="Buscar"><Icon name="search" size={18} /></Link>}
-        <Link href="/app/notificacoes" className={s.ic} aria-label={`Notificações${data.unread ? `: ${data.unread} novas` : ""}`} title="Notificações">
-          <Icon name="bell" size={18} />
-          {data.unread > 0 && <span className={s.dot}>{data.unread > 99 ? "99+" : data.unread}</span>}
-        </Link>
+        <NotificationBell unread={data.unread} />
         <Link href={settingsHref} className={`${s.ic} ${s.hideSm}`} aria-label="Configurações" title="Configurações"><Icon name="sliders" size={18} /></Link>
         <details className={s.userMenu}>
-          <summary className={s.av} style={{ background: colorFor(data.me.id) }} aria-label={`Menu da conta: ${data.me.name}`}>{initialsOf(data.me.name)}</summary>
+          <summary className={s.av} style={{ background: colorFor(data.me.id) }} aria-label={`Menu da conta: ${data.me.name}`}>
+            {initialsOf(data.me.name)}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {data.me.photoV && <img className={s.avImg} src={`/api/avatar/u/${data.me.id}?v=${data.me.photoV}`} alt="" />}
+          </summary>
           <div className={`${s.menu} ${s.menuRight}`}>
             <div className={s.menuUser}>
-              <span className={s.av} style={{ background: colorFor(data.me.id), width: 36, height: 36, fontSize: 13 }}>{initialsOf(data.me.name)}</span>
+              <span className={s.av} style={{ background: colorFor(data.me.id), width: 36, height: 36, fontSize: 13 }}>
+                {initialsOf(data.me.name)}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {data.me.photoV && <img className={s.avImg} src={`/api/avatar/u/${data.me.id}?v=${data.me.photoV}`} alt="" />}
+              </span>
               <span className={s.wswText}><b>{data.me.name}</b><small>{data.me.email}</small></span>
             </div>
             <span className={s.menuSep} />

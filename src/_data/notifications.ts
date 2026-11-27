@@ -2,7 +2,9 @@ import "server-only";
 import { db } from "@/_lib/db/prisma";
 import { requireReadyUser } from "@/_lib/auth/dal";
 import { notify } from "@/_lib/server/notify";
-import { localTime } from "@/lib/time";
+import { runDeadlineNotices } from "@/_lib/server/deadlines";
+import { runNoteExpiryNotices } from "@/_lib/server/notes-expiry";
+import { runEventReminders } from "@/_lib/server/reminders";
 
 /**
  * Lembretes de evento são criados "na hora" quando a pessoa usa o app
@@ -17,28 +19,13 @@ async function createDueReminders(userId: string, force = false) {
   if (!force && now.getTime() - (lastCheck.get(userId) ?? 0) < 60_000) return;
   lastCheck.set(userId, now.getTime());
   if (lastCheck.size > 5000) lastCheck.clear();
-  const me = await db.user.findUnique({ where: { id: userId }, select: { notifyPrefs: true } });
-  if ((me?.notifyPrefs as { reunioes?: boolean } | null)?.reunioes === false) return; // desligou lembretes
-  const soon = await db.calendarEvent.findMany({
-    where: {
-      reminderMin: { not: null },
-      startsAt: { gt: now, lt: new Date(now.getTime() + 24 * 3600_000 + 60_000) },
-      participants: { some: { userId, response: { not: "DECLINED" } } },
-    },
-    select: { id: true, title: true, startsAt: true, reminderMin: true, workspaceId: true, meeting: { select: { id: true } } },
-    take: 50,
-  });
-  for (const e of soon) {
-    if (e.startsAt.getTime() - e.reminderMin! * 60_000 > now.getTime()) continue;
-    const key = `reminder:${e.id}:${e.startsAt.toISOString()}`;
-    const exists = await db.notification.findFirst({ where: { userId, type: "event_reminder", payload: { path: ["key"], equals: key } }, select: { id: true } });
-    if (exists) continue;
-    const href = e.meeting ? `/app/w/${e.workspaceId}/reuniao/${e.meeting.id}` : `/app/w/${e.workspaceId}/agenda?evento=${e.id}`;
-    // key única por evento+horário: não repete, mesmo depois de lida.
-    await db.notification.create({
-      data: { userId, workspaceId: e.workspaceId, type: "event_reminder", title: `Às ${localTime(e.startsAt)}: ${e.title}`, body: e.meeting ? "Tem sala de reunião." : null, payload: { href, key } },
-    });
-  }
+  // Prazos de tarefas da pessoa (a rotina diária faz o mesmo para todos).
+  await runDeadlineNotices({ userId }).catch((e) => console.error("[prazos] falhou", e));
+  // Notas do espaço pessoal perto de vencer (a rotina diária faz o mesmo para todos).
+  const personal = await db.workspace.findFirst({ where: { kind: "PERSONAL", createdById: userId }, select: { id: true } });
+  if (personal) await runNoteExpiryNotices({ workspaceId: personal.id }).catch((e) => console.error("[notas] falhou", e));
+  // Lembretes de evento da pessoa (a rotina de cada minuto faz o mesmo para todos).
+  await runEventReminders({ userId }).catch((e) => console.error("[lembretes] falhou", e));
 }
 
 export async function unreadCount() {
@@ -47,13 +34,15 @@ export async function unreadCount() {
   return db.notification.count({ where: { userId: user.id, readAt: null } });
 }
 
-export async function listNotifications() {
+export type NotificationItem = Awaited<ReturnType<typeof listNotifications>>[number];
+
+export async function listNotifications(take = 100) {
   const user = await requireReadyUser("/app/notificacoes");
   await createDueReminders(user.id, true);
   const rows = await db.notification.findMany({
     where: { userId: user.id },
-    orderBy: { createdAt: "desc" },
-    take: 100,
+    orderBy: [{ readAt: { sort: "desc", nulls: "first" } }, { createdAt: "desc" }],
+    take,
     select: { id: true, type: true, title: true, body: true, payload: true, readAt: true, createdAt: true, workspace: { select: { name: true } } },
   });
   return rows.map((n) => {

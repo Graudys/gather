@@ -11,7 +11,11 @@ import { sendPush } from "@/_lib/server/push";
  */
 export type NotifyInput = {
   workspaceId?: string | null;
-  type: "dm" | "thread" | "task_assigned" | "task_comment" | "event_invite" | "event_reminder" | "workspace_added" | "help_question";
+  type:
+    | "dm" | "thread" | "mention" | "channel_message"
+    | "task_assigned" | "task_comment" | "task_due_soon" | "task_overdue" | "task_done" | "task_moved"
+    | "event_invite" | "event_reminder" | "meeting_started"
+    | "workspace_added" | "help_question" | "note_expiring";
   title: string;
   body?: string | null;
   href: string;
@@ -19,13 +23,13 @@ export type NotifyInput = {
 };
 
 /** Grupo de preferência de cada tipo de aviso (tela Perfil › Notificações). */
-export const PREF_OF: Record<NotifyInput["type"], "mencoes" | "tarefas" | "reunioes" | null> = {
-  dm: "mencoes", thread: "mencoes",
-  task_assigned: "tarefas", task_comment: "tarefas",
-  event_invite: "reunioes", event_reminder: "reunioes",
-  workspace_added: null, help_question: null, // sempre chegam
+export const PREF_OF: Record<NotifyInput["type"], "mencoes" | "canais" | "tarefas" | "reunioes" | null> = {
+  dm: "mencoes", thread: "mencoes", mention: "mencoes", channel_message: "canais",
+  task_assigned: "tarefas", task_comment: "tarefas", task_due_soon: "tarefas", task_overdue: "tarefas", task_done: "tarefas", task_moved: "tarefas",
+  event_invite: "reunioes", event_reminder: "reunioes", meeting_started: "reunioes",
+  workspace_added: null, help_question: null, note_expiring: null, // sempre chegam
 };
-export type NotifyPrefs = Partial<Record<"mencoes" | "tarefas" | "reunioes", boolean>>;
+export type NotifyPrefs = Partial<Record<"mencoes" | "canais" | "tarefas" | "reunioes", boolean>>;
 
 export const snippet = (text: string, n = 90) => (text.length > n ? `${text.slice(0, n - 1)}…` : text);
 

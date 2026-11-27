@@ -9,7 +9,9 @@
  *    notificações abertas somem.
  * 3. Notificação só abre links do próprio Gather (/app...).
  */
-const VERSION = "gather-v1";
+const VERSION = "gather-v3";
+// Registrado com ?dev=1 no "npm run dev": não guarda CSS/JS (lá eles não mudam de nome).
+const DEV = new URL(self.location.href).searchParams.has("dev");
 const SHELL = ["/offline", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -49,6 +51,23 @@ self.addEventListener("fetch", (event) => {
   // Páginas: sempre da rede. Sem internet, mostra a página /offline guardada.
   if (req.mode === "navigate") {
     event.respondWith(fetch(req).catch(async () => (await caches.match("/offline")) || Response.error()));
+    return;
+  }
+
+  // Em dev os arquivos não mudam de nome: primeiro a rede (CSS sempre novo);
+  // sem internet, usa o que está guardado (a página offline continua com estilo).
+  if (isStatic(url) && DEV) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res.ok && res.type === "basic") {
+            const copy = res.clone();
+            caches.open(VERSION).then((c) => c.put(req, copy));
+          }
+          return res;
+        })
+        .catch(async () => (await caches.match(req)) || Response.error()),
+    );
     return;
   }
 

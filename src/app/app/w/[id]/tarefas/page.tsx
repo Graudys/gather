@@ -111,7 +111,8 @@ export default async function MinhasTarefas({ params, searchParams }: PageProps<
         <div className={s.kanban}>
           {groups.map(({ g, items }, i) => (
             <div key={g} className={s.kcol}>
-              <div className={`${s.kh} ${s[`k${(i % 4) + 1}`]}`}><span>{g}</span><span className={s.kn}>{items.length}</span></div>
+              <div className={`${s.kh} ${s[`k${(i % 5) + 1}`]}`}><span>{g}</span><span className={s.kn}>{items.length}</span></div>
+              {items.length === 0 && <div className={s.kempty}>Nada aqui</div>}
               {items.map((t) => {
                 const [label, color] = PRIO[t.priority];
                 return (

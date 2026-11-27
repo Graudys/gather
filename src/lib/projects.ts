@@ -22,6 +22,21 @@ export function isOverdue(iso: string | null) {
   return inputDay(iso) < new Date().toLocaleDateString("en-CA", { timeZone: TZ });
 }
 
+export type DueState = "done" | "late" | "today" | "tomorrow" | "ok";
+/**
+ * Situação do prazo (fuso de SP): concluída, atrasada, vence hoje, vence amanhã ou ok.
+ * Usado nos cartões ("Atrasada") e nos avisos de prazo.
+ */
+export function dueState(iso: string | null, completed: boolean, now = new Date()): DueState {
+  if (!iso) return "ok";
+  if (completed) return "done";
+  const day = inputDay(iso);
+  const today = now.toLocaleDateString("en-CA", { timeZone: TZ });
+  const tomorrow = new Date(now.getTime() + 86_400_000).toLocaleDateString("en-CA", { timeZone: TZ });
+  return day < today ? "late" : day === today ? "today" : day === tomorrow ? "tomorrow" : "ok";
+}
+export const DUE_LABEL: Record<DueState, string> = { done: "Concluída", late: "Atrasada", today: "Vence hoje", tomorrow: "Vence amanhã", ok: "" };
+
 /** Hoje e daqui a 7 dias ("aaaa-mm-dd", fuso de SP), para agrupar prazos. */
 export function dayWindow(now = new Date()) {
   return {
